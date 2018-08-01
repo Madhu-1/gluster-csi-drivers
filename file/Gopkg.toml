@@ -1,0 +1,43 @@
+[[constraint]]
+  name = "github.com/gluster/glusterd2"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "1.0.5"
+
+[[constraint]]
+  name = "github.com/container-storage-interface/spec"
+  branch = "master"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/golang/glog"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.7.2"
+
+[[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "edc3ab29cdff8694dd6feb85cfeb4b5f1b38ed9c"
+
+[[constraint]]
+  name = "k8s.io/kubernetes"
+  branch = "master"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/kubernetes-csi/csi-test"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  branch = "master"
+
+[[constraint]]
+  name = "k8s.io/api"
+  branch = "master"
+
+
+
+

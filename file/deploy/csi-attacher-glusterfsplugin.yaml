@@ -1,0 +1,67 @@
+# This YAML file contains attacher & csi driver API objects that are necessary
+# to run external CSI attacher for glusterfs
+
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-attacher-glusterfsplugin
+  labels:
+    app: csi-attacher-glusterfsplugin
+spec:
+  selector:
+    app: csi-attacher-glusterfsplugin
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: StatefulSet
+apiVersion: apps/v1beta1
+metadata:
+  name: csi-attacher-glusterfsplugin
+spec:
+  serviceName: "csi-attacher"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: csi-attacher-glusterfsplugin
+    spec:
+      serviceAccount: csi-attacher
+      containers:
+        - name: csi-attacher
+          image: quay.io/k8scsi/csi-attacher:v0.3.0
+          args:
+            - "--v=5"
+            - "--csi-address=$(ADDRESS)"
+          env:
+            - name: ADDRESS
+              value: /plugin/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /plugin
+
+        - name: glusterfs
+          image: docker.io/madhupr001/glusterd2-csi-driver
+          args :
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--glusterurl=http://192.168.121.37:24007"
+            - "--secret=4abaf57aaf8413f1f1e37054f1b939cf3c7afe73a9530f378a9f43a62876c9d8"
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_ENDPOINT
+              value: unix://plugin/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /plugin
+      volumes:
+        - name: socket-dir
+          emptyDir:
+

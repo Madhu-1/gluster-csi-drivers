@@ -1,0 +1,20 @@
+{
+   "kind": "PersistentVolumeClaim",
+   "apiVersion": "v1",
+   "metadata": {
+     "name": "glusterd2pv",
+     "annotations": {
+     "volume.beta.kubernetes.io/storage-class": "glusterfscsi"
+     }
+   },
+   "spec": {
+     "accessModes": [
+       "ReadWriteMany"
+     ],
+    "resources": {
+       "requests": {
+         "storage": "20Gi"
+       }
+     }
+   }
+}
