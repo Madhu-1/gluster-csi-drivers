@@ -226,23 +226,24 @@ func (d *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *
 		return nil, status.Error(codes.InvalidArgument, "VolumeCapabilities is required field")
 	}
 
-	var vcaps []*csi.VolumeCapability_AccessMode
+	capsupport := true
+	var volcaps []*csi.VolumeCapability_AccessMode
 	for _, mode := range []csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 	} {
-		vcaps = append(vcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
+		volcaps = append(vcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
 	}
 
 	ll := d.logger.WithFields(logrus.Fields{
 		"Volume ID":              req.VolumeId,
 		"volume capabilities":    req.VolumeCapabilities,
-		"supported capabilities": vcaps,
+		"supported capabilities": volcaps,
 		"Request Type":           "ValidateVolumeCapabilities",
 	})
 	ll.Info("validate volume capabilities called")
 
-	hasSupport := func(mode csi.VolumeCapability_AccessMode_Mode) bool {
-		for _, m := range vcaps {
+	iSModeSupport := func(mode csi.VolumeCapability_AccessMode_Mode) bool {
+		for _, m := range volcaps {
 			if mode == m.Mode {
 				return true
 			}
@@ -250,17 +251,16 @@ func (d *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *
 		return false
 	}
 
-	resp := &csi.ValidateVolumeCapabilitiesResponse{
-		Supported: false,
-	}
-
-	for _, cap := range req.VolumeCapabilities {
-		if hasSupport(cap.AccessMode.Mode) {
-			resp.Supported = true
-		} else {
-			resp.Supported = false
+	for _, c := range req.VolumeCapabilities {
+		if !iSModeSupport(c.AccessMode.Mode) {
+			capsupport = false
 		}
 	}
+
+	resp := &csi.ValidateVolumeCapabilitiesResponse{
+		Supported: capsupport,
+	}
+
 	ll.WithField("response", resp).Info("volume supported capabilities")
 	return resp, nil
 }
