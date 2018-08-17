@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
@@ -78,7 +79,13 @@ func (d *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolu
 			if int(v.Size.Capacity) != volSizeBytes {
 				return nil, status.Error(codes.AlreadyExists, fmt.Sprintf("volume already exits with diferent size: %d", v.Size.Capacity))
 			}
-
+			//volume not started, start the volume
+			if !v.Online {
+				err := d.client.VolumeStart(v.Info.Name, true)
+				if err != nil {
+					return nil, status.Error(codes.Internal, fmt.Sprintf("failed to start volume"))
+				}
+			}
 			d.logger.Info("volume already exists")
 			glusterServer, peeraddresses, err := d.getpeeraddress()
 
@@ -131,6 +138,8 @@ func (d *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolu
 	glusterServer, peeraddresses, err := d.getpeeraddress()
 
 	if err != nil {
+		//no need to delete the started volume here, as kubernetes will
+		//retry to create volume, we are fetching the started volume
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error in fecthing peer details %s", err.Error()))
 	}
 
@@ -162,18 +171,17 @@ func (d *ControllerServer) getpeeraddress() (string, []string, error) {
 	for i, p := range peers {
 		if i == 0 {
 			for _, a := range p.PeerAddresses {
-				if !strings.Contains(a, "127.0.0.1") {
-					ip := strings.Split(a, ":")
-					glusterServer = ip[0]
-				}
+
+				ip := strings.Split(a, ":")
+				glusterServer = ip[0]
+
 			}
 			continue
 		}
 		for _, a := range p.PeerAddresses {
-			if !strings.Contains(a, "127.0.0.1") {
-				ip := strings.Split(a, ":")
-				peeraddresses = append(peeraddresses, ip[0])
-			}
+			ip := strings.Split(a, ":")
+			peeraddresses = append(peeraddresses, ip[0])
+
 		}
 	}
 	return glusterServer, peeraddresses, err
@@ -194,11 +202,18 @@ func (d *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolu
 	err := d.client.VolumeStop(req.VolumeId)
 
 	if err != nil {
+		if d.client.LastErrorResponse().StatusCode == http.StatusNotFound {
+			return &csi.DeleteVolumeResponse{}, nil
+		}
 		return nil, status.Errorf(codes.Internal, "error starting volume %s", err.Error())
 	}
 
 	err = d.client.VolumeDelete(req.VolumeId)
 	if err != nil {
+		if d.client.LastErrorResponse().StatusCode == http.StatusNotFound {
+			return &csi.DeleteVolumeResponse{}, nil
+		}
+
 		return nil, status.Errorf(codes.Internal, "error deleting volume %s", err.Error())
 	}
 	ll.WithField("volume ID", req.VolumeId).Info("volume is deleted")
@@ -229,6 +244,7 @@ func (d *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *
 	capsupport := true
 	var volcaps []*csi.VolumeCapability_AccessMode
 	for _, mode := range []csi.VolumeCapability_AccessMode_Mode{
+		csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY,
 		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 	} {
 		volcaps = append(volcaps, &csi.VolumeCapability_AccessMode{Mode: mode})

@@ -29,9 +29,13 @@ type Driver struct {
 // NewDriver returns a CSI plugin to interact with Kubernetes
 func NewDriver(nodeID, endpoint, glusterURL, username, secret string) *Driver {
 	d := &Driver{}
+	var err error
 	d.nodeID = nodeID
 	d.endpoint = endpoint
-	d.client, _ = restclient.New(glusterURL, username, secret, "", false)
+	d.client, err = restclient.New(glusterURL, username, secret, "", false)
+	if err != nil {
+		d.logger.Fatal("failed to initialize client")
+	}
 	d.logger = logrus.New()
 
 	d.csiDriver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)

@@ -58,10 +58,10 @@ func main() {
 }
 
 func handle() {
-	ep := os.Getenv("CSI_ENDPOINT")
 	if endpoint == "" {
-		endpoint = ep
+		endpoint = os.Getenv("CSI_ENDPOINT")
 	}
+
 	d := driver.NewDriver(nodeID, endpoint, glusterURL, username, secret)
 	d.Run()
 }
