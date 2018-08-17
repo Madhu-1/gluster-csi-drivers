@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import (
 	"strings"
 	"testing"
 
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/kubernetes/pkg/credentialprovider"
-	utilnet "k8s.io/kubernetes/pkg/util/net"
 )
 
 func createProductNameFile() (string, error) {

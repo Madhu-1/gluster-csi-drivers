@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,85 +19,83 @@ package e2e_node
 import (
 	"fmt"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/errors"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
+	"k8s.io/kubernetes/test/e2e/framework"
 )
 
 // One pod one container
 type ConformanceContainer struct {
-	Container        api.Container
-	Client           *client.Client
-	RestartPolicy    api.RestartPolicy
-	Volumes          []api.Volume
+	Container        v1.Container
+	RestartPolicy    v1.RestartPolicy
+	Volumes          []v1.Volume
 	ImagePullSecrets []string
-	NodeName         string
-	Namespace        string
 
-	podName string
+	PodClient          *framework.PodClient
+	podName            string
+	PodSecurityContext *v1.PodSecurityContext
 }
 
-func (cc *ConformanceContainer) Create() error {
-	cc.podName = cc.Container.Name + string(util.NewUUID())
-	imagePullSecrets := []api.LocalObjectReference{}
+func (cc *ConformanceContainer) Create() {
+	cc.podName = cc.Container.Name + string(uuid.NewUUID())
+	imagePullSecrets := []v1.LocalObjectReference{}
 	for _, s := range cc.ImagePullSecrets {
-		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: s})
+		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: s})
 	}
-	pod := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
-			Name:      cc.podName,
-			Namespace: cc.Namespace,
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: cc.podName,
 		},
-		Spec: api.PodSpec{
-			NodeName:      cc.NodeName,
+		Spec: v1.PodSpec{
 			RestartPolicy: cc.RestartPolicy,
-			Containers: []api.Container{
+			Containers: []v1.Container{
 				cc.Container,
 			},
+			SecurityContext:  cc.PodSecurityContext,
 			Volumes:          cc.Volumes,
 			ImagePullSecrets: imagePullSecrets,
 		},
 	}
-
-	_, err := cc.Client.Pods(cc.Namespace).Create(pod)
-	return err
+	cc.PodClient.Create(pod)
 }
 
 func (cc *ConformanceContainer) Delete() error {
-	return cc.Client.Pods(cc.Namespace).Delete(cc.podName, api.NewDeleteOptions(0))
+	return cc.PodClient.Delete(cc.podName, metav1.NewDeleteOptions(0))
 }
 
 func (cc *ConformanceContainer) IsReady() (bool, error) {
-	pod, err := cc.Client.Pods(cc.Namespace).Get(cc.podName)
+	pod, err := cc.PodClient.Get(cc.podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
-	return api.IsPodReady(pod), nil
+	return podutil.IsPodReady(pod), nil
 }
 
-func (cc *ConformanceContainer) GetPhase() (api.PodPhase, error) {
-	pod, err := cc.Client.Pods(cc.Namespace).Get(cc.podName)
+func (cc *ConformanceContainer) GetPhase() (v1.PodPhase, error) {
+	pod, err := cc.PodClient.Get(cc.podName, metav1.GetOptions{})
 	if err != nil {
-		return api.PodUnknown, err
+		return v1.PodUnknown, err
 	}
 	return pod.Status.Phase, nil
 }
 
-func (cc *ConformanceContainer) GetStatus() (api.ContainerStatus, error) {
-	pod, err := cc.Client.Pods(cc.Namespace).Get(cc.podName)
+func (cc *ConformanceContainer) GetStatus() (v1.ContainerStatus, error) {
+	pod, err := cc.PodClient.Get(cc.podName, metav1.GetOptions{})
 	if err != nil {
-		return api.ContainerStatus{}, err
+		return v1.ContainerStatus{}, err
 	}
 	statuses := pod.Status.ContainerStatuses
 	if len(statuses) != 1 || statuses[0].Name != cc.Container.Name {
-		return api.ContainerStatus{}, fmt.Errorf("unexpected container statuses %v", statuses)
+		return v1.ContainerStatus{}, fmt.Errorf("unexpected container statuses %v", statuses)
 	}
 	return statuses[0], nil
 }
 
 func (cc *ConformanceContainer) Present() (bool, error) {
-	_, err := cc.Client.Pods(cc.Namespace).Get(cc.podName)
+	_, err := cc.PodClient.Get(cc.podName, metav1.GetOptions{})
 	if err == nil {
 		return true, nil
 	}
@@ -107,16 +105,16 @@ func (cc *ConformanceContainer) Present() (bool, error) {
 	return false, err
 }
 
-type ContainerState int
+type ContainerState string
 
 const (
-	ContainerStateWaiting ContainerState = iota
-	ContainerStateRunning
-	ContainerStateTerminated
-	ContainerStateUnknown
+	ContainerStateWaiting    ContainerState = "Waiting"
+	ContainerStateRunning    ContainerState = "Running"
+	ContainerStateTerminated ContainerState = "Terminated"
+	ContainerStateUnknown    ContainerState = "Unknown"
 )
 
-func GetContainerState(state api.ContainerState) ContainerState {
+func GetContainerState(state v1.ContainerState) ContainerState {
 	if state.Waiting != nil {
 		return ContainerStateWaiting
 	}

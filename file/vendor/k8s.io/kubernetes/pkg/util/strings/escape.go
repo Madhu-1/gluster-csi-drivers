@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ func EscapePluginName(in string) string {
 	return strings.Replace(in, "/", "~", -1)
 }
 
-// EscapeQualifiedPluginName converts a plugin directory name in the format
+// UnescapePluginName converts a plugin directory name in the format
 // vendor~pluginname into a proper vendor/pluginname.
 func UnescapePluginName(in string) string {
 	return strings.Replace(in, "~", "/", -1)

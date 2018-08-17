@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package kubectl
 import (
 	"fmt"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // NamespaceGeneratorV1 supports stable generation of a namespace
@@ -65,7 +65,7 @@ func (g *NamespaceGeneratorV1) StructuredGenerate() (runtime.Object, error) {
 	if err := g.validate(); err != nil {
 		return nil, err
 	}
-	namespace := &api.Namespace{}
+	namespace := &v1.Namespace{}
 	namespace.Name = g.Name
 	return namespace, nil
 }

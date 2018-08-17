@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,8 +32,12 @@ import (
 type Factory func(config io.Reader) (Interface, error)
 
 // All registered cloud providers.
-var providersMutex sync.Mutex
-var providers = make(map[string]Factory)
+var (
+	providersMutex sync.Mutex
+	providers      = make(map[string]Factory)
+)
+
+const externalCloudProvider = "external"
 
 // RegisterCloudProvider registers a cloudprovider.Factory by name.  This
 // is expected to happen during app startup.
@@ -47,11 +51,20 @@ func RegisterCloudProvider(name string, cloud Factory) {
 	providers[name] = cloud
 }
 
+// IsCloudProvider returns true if name corresponds to an already registered
+// cloud provider.
+func IsCloudProvider(name string) bool {
+	providersMutex.Lock()
+	defer providersMutex.Unlock()
+	_, found := providers[name]
+	return found
+}
+
 // GetCloudProvider creates an instance of the named cloud provider, or nil if
-// the name is not known.  The error return is only used if the named provider
+// the name is unknown.  The error return is only used if the named provider
 // was known but failed to initialize. The config parameter specifies the
 // io.Reader handler of the configuration file for the cloud provider, or nil
-// for no configuation.
+// for no configuration.
 func GetCloudProvider(name string, config io.Reader) (Interface, error) {
 	providersMutex.Lock()
 	defer providersMutex.Unlock()
@@ -62,6 +75,11 @@ func GetCloudProvider(name string, config io.Reader) (Interface, error) {
 	return f(config)
 }
 
+// Detects if the string is an external cloud provider
+func IsExternal(name string) bool {
+	return name == externalCloudProvider
+}
+
 // InitCloudProvider creates an instance of the named cloud provider.
 func InitCloudProvider(name string, configFilePath string) (Interface, error) {
 	var cloud Interface
@@ -69,6 +87,11 @@ func InitCloudProvider(name string, configFilePath string) (Interface, error) {
 
 	if name == "" {
 		glog.Info("No cloud provider specified.")
+		return nil, nil
+	}
+
+	if IsExternal(name) {
+		glog.Info("External cloud provider specified")
 		return nil, nil
 	}
 

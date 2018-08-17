@@ -1,4 +1,4 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM debian:wheezy
-MAINTAINER Tim Hockin "thockin@google.com"
+FROM BASEIMAGE
 
-RUN apt-get -q update && \
-    apt-get install -y dnsutils && \
-    apt-get clean
+CROSS_BUILD_COPY qemu-QEMUARCH-static /usr/bin/
+
+RUN apk add --no-cache bind-tools

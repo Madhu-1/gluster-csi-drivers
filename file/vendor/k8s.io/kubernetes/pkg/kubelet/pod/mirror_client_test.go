@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ func TestParsePodFullName(t *testing.T) {
 		"bar.org_foo.com": {Name: "bar.org", Namespace: "foo.com"},
 		"bar-bar_foo":     {Name: "bar-bar", Namespace: "foo"},
 	}
-	failedCases := []string{"barfoo", "bar_foo_foo", ""}
+	failedCases := []string{"barfoo", "bar_foo_foo", "", "bar_", "_foo"}
 
 	for podFullName, expected := range successfulCases {
 		name, namespace, err := kubecontainer.ParsePodFullName(podFullName)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,18 +21,12 @@
 #   KUBE_TEMP
 function ensure-gci-metadata-files {
   if [[ ! -f "${KUBE_TEMP}/gci-update.txt" ]]; then
-    cat >"${KUBE_TEMP}/gci-update.txt" << EOF
-update_disabled
-EOF
+    echo -n "update_disabled" > "${KUBE_TEMP}/gci-update.txt"
   fi
   if [[ ! -f "${KUBE_TEMP}/gci-ensure-gke-docker.txt" ]]; then
-    cat >"${KUBE_TEMP}/gci-ensure-gke-docker.txt" << EOF
-true
-EOF
+    echo -n "true" > "${KUBE_TEMP}/gci-ensure-gke-docker.txt"
   fi
   if [[ ! -f "${KUBE_TEMP}/gci-docker-version.txt" ]]; then
-    cat >"${KUBE_TEMP}/gci-docker-version.txt" << EOF
-${GCI_DOCKER_VERSION:-}
-EOF
+    echo -n "${GCI_DOCKER_VERSION:-}" > "${KUBE_TEMP}/gci-docker-version.txt"
   fi
 }

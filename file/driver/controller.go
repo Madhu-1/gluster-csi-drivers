@@ -231,7 +231,7 @@ func (d *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *
 	for _, mode := range []csi.VolumeCapability_AccessMode_Mode{
 		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
 	} {
-		volcaps = append(vcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
+		volcaps = append(volcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
 	}
 
 	ll := d.logger.WithFields(logrus.Fields{

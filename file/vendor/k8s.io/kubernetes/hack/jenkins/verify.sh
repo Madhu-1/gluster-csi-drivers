@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 The Kubernetes Authors All rights reserved.
+# Copyright 2015 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,5 @@ export PATH=${GOPATH}/bin:${HOME}/third_party/etcd:/usr/local/go/bin:$PATH
 
 # Install a few things needed by the verification tests.
 command -v etcd &>/dev/null || ./hack/install-etcd.sh
-go get -u github.com/tools/godep
 
-./hack/verify-all.sh -v
+make verify

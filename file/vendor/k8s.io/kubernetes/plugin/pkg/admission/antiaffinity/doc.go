@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 // LimitPodHardAntiAffinityTopology admission controller rejects any pod
 // that specifies "hard" (RequiredDuringScheduling) anti-affinity
-// with a TopologyKey other than unversioned.LabelHostname.
+// with a TopologyKey other than kubeletapis.LabelHostname.
 // Because anti-affinity is symmetric, without this admission controller,
 // a user could maliciously or accidentally specify that their pod (once it has scheduled)
 // should block other pods from scheduling into the same zone or some other large topology,
@@ -25,4 +25,4 @@ limitations under the License.
 // but for now this admission controller provides a simple protection,
 // on the assumption that the only legitimate use of hard pod anti-affinity
 // is to exclude other pods from the same node.
-package antiaffinity
+package antiaffinity // import "k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"

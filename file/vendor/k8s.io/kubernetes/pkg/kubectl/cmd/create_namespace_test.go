@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,17 +21,24 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/unversioned/fake"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest/fake"
+	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
+	"k8s.io/kubernetes/pkg/kubectl/scheme"
 )
 
 func TestCreateNamespace(t *testing.T) {
-	namespaceObject := &api.Namespace{}
+	namespaceObject := &v1.Namespace{}
 	namespaceObject.Name = "my-namespace"
-	f, tf, codec := NewAPIFactory()
-	tf.Printer = &testPrinter{}
+	tf := cmdtesting.NewTestFactory()
+	codec := legacyscheme.Codecs.LegacyCodec(scheme.Versions...)
+	ns := legacyscheme.Codecs
+
 	tf.Client = &fake.RESTClient{
-		Codec: codec,
+		GroupVersion:         schema.GroupVersion{Version: "v1"},
+		NegotiatedSerializer: ns,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
 			switch p, m := req.URL.Path, req.Method; {
 			case p == "/namespaces" && m == "POST":
@@ -43,11 +50,11 @@ func TestCreateNamespace(t *testing.T) {
 		}),
 	}
 	buf := bytes.NewBuffer([]byte{})
-	cmd := NewCmdCreateNamespace(f, buf)
+	cmd := NewCmdCreateNamespace(tf, buf)
 	cmd.Flags().Set("output", "name")
 	cmd.Run(cmd, []string{namespaceObject.Name})
 	expectedOutput := "namespace/" + namespaceObject.Name + "\n"
 	if buf.String() != expectedOutput {
-		t.Errorf("expected output: %s, but got: %s", buf.String(), expectedOutput)
+		t.Errorf("expected output: %s, but got: %s", expectedOutput, buf.String())
 	}
 }

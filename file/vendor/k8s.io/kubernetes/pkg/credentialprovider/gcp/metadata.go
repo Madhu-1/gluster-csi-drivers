@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/kubernetes/pkg/credentialprovider"
 )
 
@@ -38,7 +39,6 @@ const (
 	metadataEmail            = metadataUrl + "instance/service-accounts/default/email"
 	storageScopePrefix       = "https://www.googleapis.com/auth/devstorage"
 	cloudPlatformScopePrefix = "https://www.googleapis.com/auth/cloud-platform"
-	googleProductName        = "Google"
 	defaultServiceAccount    = "default/"
 )
 
@@ -82,10 +82,16 @@ type containerRegistryProvider struct {
 // init registers the various means by which credentials may
 // be resolved on GCP.
 func init() {
+	tr := utilnet.SetTransportDefaults(&http.Transport{})
+	metadataHTTPClientTimeout := time.Second * 10
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   metadataHTTPClientTimeout,
+	}
 	credentialprovider.RegisterCredentialProvider("google-dockercfg",
 		&credentialprovider.CachingDockerConfigProvider{
 			Provider: &dockerConfigKeyProvider{
-				metadataProvider{Client: http.DefaultClient},
+				metadataProvider{Client: httpClient},
 			},
 			Lifetime: 60 * time.Second,
 		})
@@ -93,7 +99,7 @@ func init() {
 	credentialprovider.RegisterCredentialProvider("google-dockercfg-url",
 		&credentialprovider.CachingDockerConfigProvider{
 			Provider: &dockerConfigUrlKeyProvider{
-				metadataProvider{Client: http.DefaultClient},
+				metadataProvider{Client: httpClient},
 			},
 			Lifetime: 60 * time.Second,
 		})
@@ -102,7 +108,7 @@ func init() {
 		// Never cache this.  The access token is already
 		// cached by the metadata service.
 		&containerRegistryProvider{
-			metadataProvider{Client: http.DefaultClient},
+			metadataProvider{Client: httpClient},
 		})
 }
 
@@ -114,7 +120,8 @@ func onGCEVM() bool {
 		glog.V(2).Infof("Error while reading product_name: %v", err)
 		return false
 	}
-	return strings.Contains(string(data), googleProductName)
+	name := strings.TrimSpace(string(data))
+	return name == "Google" || name == "Google Compute Engine"
 }
 
 // Enabled implements DockerConfigProvider for all of the Google implementations.

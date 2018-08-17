@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,7 +52,9 @@ func GetChainLines(table Table, save []byte) map[Chain]string {
 		} else if strings.HasPrefix(line, "#") {
 			continue
 		} else if strings.HasPrefix(line, ":") && len(line) > 1 {
-			chain := Chain(strings.SplitN(line[1:], " ", 2)[0])
+			// We assume that the <line> contains space - chain lines have 3 fields,
+			// space delimited. If there is no space, this line will panic.
+			chain := Chain(line[1:strings.Index(line, " ")])
 			chainsMap[chain] = line
 		}
 	}

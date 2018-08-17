@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,36 +21,38 @@ limitations under the License.
 package main
 
 import (
+	goflag "flag"
 	"fmt"
+	"math/rand"
 	"os"
-	"runtime"
-
-	"k8s.io/kubernetes/cmd/kube-controller-manager/app"
-	"k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
-	"k8s.io/kubernetes/pkg/healthz"
-	"k8s.io/kubernetes/pkg/util"
-	"k8s.io/kubernetes/pkg/util/flag"
-	"k8s.io/kubernetes/pkg/version/verflag"
+	"time"
 
 	"github.com/spf13/pflag"
+
+	utilflag "k8s.io/apiserver/pkg/util/flag"
+	"k8s.io/apiserver/pkg/util/logs"
+	"k8s.io/kubernetes/cmd/kube-controller-manager/app"
+	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
+	_ "k8s.io/kubernetes/pkg/util/reflector/prometheus" // for reflector metric registration
+	_ "k8s.io/kubernetes/pkg/util/workqueue/prometheus" // for workqueue metric registration
+	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
 )
 
-func init() {
-	healthz.DefaultHealthz()
-}
-
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	s := options.NewCMServer()
-	s.AddFlags(pflag.CommandLine)
+	rand.Seed(time.Now().UTC().UnixNano())
 
-	flag.InitFlags()
-	util.InitLogs()
-	defer util.FlushLogs()
+	command := app.NewControllerManagerCommand()
 
-	verflag.PrintAndExitIfRequested()
+	// TODO: once we switch everything over to Cobra commands, we can go back to calling
+	// utilflag.InitFlags() (by removing its pflag.Parse() call). For now, we have to set the
+	// normalize func and add the go flag set by hand.
+	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
+	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+	// utilflag.InitFlags()
+	logs.InitLogs()
+	defer logs.FlushLogs()
 
-	if err := app.Run(s); err != nil {
+	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

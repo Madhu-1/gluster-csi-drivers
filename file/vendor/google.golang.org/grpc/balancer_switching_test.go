@@ -25,38 +25,12 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/roundrobin"
-	"google.golang.org/grpc/connectivity"
 	_ "google.golang.org/grpc/grpclog/glogger"
-	"google.golang.org/grpc/internal/leakcheck"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
+	"google.golang.org/grpc/test/leakcheck"
 )
-
-var _ balancer.Builder = &magicalLB{}
-var _ balancer.Balancer = &magicalLB{}
-
-// magicalLB is a ringer for grpclb.  It is used to avoid circular dependencies on the grpclb package
-type magicalLB struct{}
-
-func (b *magicalLB) Name() string {
-	return "grpclb"
-}
-
-func (b *magicalLB) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
-	return b
-}
-
-func (b *magicalLB) HandleSubConnStateChange(balancer.SubConn, connectivity.State) {}
-
-func (b *magicalLB) HandleResolvedAddrs([]resolver.Address, error) {}
-
-func (b *magicalLB) Close() {}
-
-func init() {
-	balancer.Register(&magicalLB{})
-}
 
 func checkPickFirst(cc *ClientConn, servers []*server) error {
 	var (
@@ -66,7 +40,7 @@ func checkPickFirst(cc *ClientConn, servers []*server) error {
 	)
 	connected := false
 	for i := 0; i < 5000; i++ {
-		if err = cc.Invoke(context.Background(), "/foo/bar", &req, &reply); errorDesc(err) == servers[0].port {
+		if err = Invoke(context.Background(), "/foo/bar", &req, &reply, cc); errorDesc(err) == servers[0].port {
 			if connected {
 				// connected is set to false if peer is not server[0]. So if
 				// connected is true here, this is the second time we saw
@@ -84,7 +58,7 @@ func checkPickFirst(cc *ClientConn, servers []*server) error {
 	}
 	// The following RPCs should all succeed with the first server.
 	for i := 0; i < 3; i++ {
-		err = cc.Invoke(context.Background(), "/foo/bar", &req, &reply)
+		err = Invoke(context.Background(), "/foo/bar", &req, &reply, cc)
 		if errorDesc(err) != servers[0].port {
 			return fmt.Errorf("Index %d: want peer %v, got peer %v", i, servers[0].port, err)
 		}
@@ -106,7 +80,7 @@ func checkRoundRobin(cc *ClientConn, servers []*server) error {
 		for _, s := range servers {
 			var up bool
 			for i := 0; i < 5000; i++ {
-				if err = cc.Invoke(context.Background(), "/foo/bar", &req, &reply); errorDesc(err) == s.port {
+				if err = Invoke(context.Background(), "/foo/bar", &req, &reply, cc); errorDesc(err) == s.port {
 					up = true
 					break
 				}
@@ -120,7 +94,7 @@ func checkRoundRobin(cc *ClientConn, servers []*server) error {
 
 	serverCount := len(servers)
 	for i := 0; i < 3*serverCount; i++ {
-		err = cc.Invoke(context.Background(), "/foo/bar", &req, &reply)
+		err = Invoke(context.Background(), "/foo/bar", &req, &reply, cc)
 		if errorDesc(err) != servers[i%serverCount].port {
 			return fmt.Errorf("Index %d: want peer %v, got peer %v", i, servers[i%serverCount].port, err)
 		}

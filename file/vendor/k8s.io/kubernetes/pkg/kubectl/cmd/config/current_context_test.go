@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type currentContextTest struct {
@@ -57,9 +57,12 @@ func TestCurrentContextWithUnsetContext(t *testing.T) {
 }
 
 func (test currentContextTest) run(t *testing.T) {
-	fakeKubeFile, _ := ioutil.TempFile("", "")
+	fakeKubeFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	defer os.Remove(fakeKubeFile.Name())
-	err := clientcmd.WriteToFile(test.startingConfig, fakeKubeFile.Name())
+	err = clientcmd.WriteToFile(test.startingConfig, fakeKubeFile.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -72,7 +75,7 @@ func (test currentContextTest) run(t *testing.T) {
 	}
 
 	buf := bytes.NewBuffer([]byte{})
-	err = RunCurrentContext(buf, []string{}, &options)
+	err = RunCurrentContext(buf, &options)
 	if len(test.expectedError) != 0 {
 		if err == nil {
 			t.Errorf("Did not get %v", test.expectedError)

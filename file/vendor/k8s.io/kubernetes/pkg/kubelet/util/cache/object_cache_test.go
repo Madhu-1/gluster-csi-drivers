@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	expirationCache "k8s.io/kubernetes/pkg/client/cache"
-	"k8s.io/kubernetes/pkg/util"
+	"k8s.io/apimachinery/pkg/util/clock"
+	expirationcache "k8s.io/client-go/tools/cache"
 )
 
 type testObject struct {
@@ -31,12 +31,12 @@ type testObject struct {
 }
 
 // A fake objectCache for unit test.
-func NewFakeObjectCache(f func() (interface{}, error), ttl time.Duration, clock util.Clock) *ObjectCache {
-	ttlPolicy := &expirationCache.TTLPolicy{Ttl: ttl, Clock: clock}
+func NewFakeObjectCache(f func() (interface{}, error), ttl time.Duration, clock clock.Clock) *ObjectCache {
+	ttlPolicy := &expirationcache.TTLPolicy{Ttl: ttl, Clock: clock}
 	deleteChan := make(chan string, 1)
 	return &ObjectCache{
 		updater: f,
-		cache:   expirationCache.NewFakeExpirationStore(stringKeyFunc, deleteChan, ttlPolicy, clock),
+		cache:   expirationcache.NewFakeExpirationStore(stringKeyFunc, deleteChan, ttlPolicy, clock),
 	}
 }
 
@@ -47,7 +47,7 @@ func TestAddAndGet(t *testing.T) {
 	}
 	objectCache := NewFakeObjectCache(func() (interface{}, error) {
 		return nil, fmt.Errorf("Unexpected Error: updater should never be called in this test!")
-	}, 1*time.Hour, util.NewFakeClock(time.Now()))
+	}, 1*time.Hour, clock.NewFakeClock(time.Now()))
 
 	err := objectCache.Add(testObj.key, testObj.val)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestExpirationBasic(t *testing.T) {
 		val: unexpectedVal,
 	}
 
-	fakeClock := util.NewFakeClock(time.Now())
+	fakeClock := clock.NewFakeClock(time.Now())
 
 	objectCache := NewFakeObjectCache(func() (interface{}, error) {
 		return expectedVal, nil

@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package types defines types used only by volume componenets
+// Package types defines types used only by volume components
 package types
 
-import "k8s.io/kubernetes/pkg/types"
+import "k8s.io/apimachinery/pkg/types"
 
 // UniquePodName defines the type to key pods off of
 type UniquePodName types.UID
+
+// UniquePVCName defines the type to key pvc off
+type UniquePVCName types.UID
+
+// GeneratedOperations contains the operation that is created as well as
+// supporting functions required for the operation executor
+type GeneratedOperations struct {
+	OperationFunc     func() (eventErr error, detailedErr error)
+	EventRecorderFunc func(*error)
+	CompleteFunc      func(*error)
+}

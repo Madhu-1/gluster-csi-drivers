@@ -1,7 +1,7 @@
-// +build !cgo !linux
+// +build !linux,!windows linux,!cgo
 
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ type cadvisorUnsupported struct {
 
 var _ Interface = new(cadvisorUnsupported)
 
-func New(port uint, runtime string) (Interface, error) {
+func New(address string, port uint, imageFsInfoProvider ImageFsInfoProvider, rootPath string, usingLegacyStats bool) (Interface, error) {
 	return &cadvisorUnsupported{}, nil
 }
 
@@ -75,4 +75,8 @@ func (cu *cadvisorUnsupported) RootFsInfo() (cadvisorapiv2.FsInfo, error) {
 
 func (cu *cadvisorUnsupported) WatchEvents(request *events.Request) (*events.EventChannel, error) {
 	return nil, unsupportedErr
+}
+
+func (cu *cadvisorUnsupported) GetDirFsInfo(path string) (cadvisorapiv2.FsInfo, error) {
+	return cadvisorapiv2.FsInfo{}, nil
 }

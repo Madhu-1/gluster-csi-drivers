@@ -1,4 +1,4 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
 # limitations under the License.
 
 FROM centos
-MAINTAINER Jan Safranek, jsafrane@redhat.com
-ADD gluster.repo /etc/yum.repos.d/
-RUN yum -y install hostname glusterfs-server && yum clean all
+RUN yum -y install hostname centos-release-gluster && yum -y install glusterfs-server && yum clean all
 ADD glusterd.vol /etc/glusterfs/
 ADD run_gluster.sh /usr/local/bin/
 ADD index.html /vol/

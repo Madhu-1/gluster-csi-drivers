@@ -2,6 +2,7 @@ package snapshotcommands
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gluster/glusterd2/glusterd2/brick"
@@ -166,8 +167,8 @@ func snapshotActivateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req api.SnapActivateReq
 	vol = &snapinfo.SnapVolinfo
-	if err := restutils.UnmarshalRequest(r, &req); err != nil {
-		restutils.SendHTTPError(ctx, w, http.StatusUnprocessableEntity, err)
+	if err := restutils.UnmarshalRequest(r, &req); err != nil && err != io.EOF {
+		restutils.SendHTTPError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -204,10 +205,8 @@ func snapshotActivateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = txn.Do()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"error":    err.Error(),
-			"snapshot": snapname,
-		}).Error("failed to start snapshot")
+		log.WithError(err).WithField(
+			"snapshot", snapname).Error("failed to start snapshot")
 		restutils.SendHTTPError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

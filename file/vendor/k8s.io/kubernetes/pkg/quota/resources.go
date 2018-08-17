@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,39 @@ limitations under the License.
 package quota
 
 import (
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
-	"k8s.io/kubernetes/pkg/util/sets"
+	"strings"
+
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/sets"
+	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 // Equals returns true if the two lists are equivalent
 func Equals(a api.ResourceList, b api.ResourceList) bool {
+	for key, value1 := range a {
+		value2, found := b[key]
+		if !found {
+			return false
+		}
+		if value1.Cmp(value2) != 0 {
+			return false
+		}
+	}
+	for key, value1 := range b {
+		value2, found := a[key]
+		if !found {
+			return false
+		}
+		if value1.Cmp(value2) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// V1Equals returns true if the two lists are equivalent
+func V1Equals(a v1.ResourceList, b v1.ResourceList) bool {
 	for key, value1 := range a {
 		value2, found := b[key]
 		if !found {
@@ -61,6 +87,26 @@ func LessThanOrEqual(a api.ResourceList, b api.ResourceList) (bool, []api.Resour
 	return result, resourceNames
 }
 
+// Max returns the result of Max(a, b) for each named resource
+func Max(a api.ResourceList, b api.ResourceList) api.ResourceList {
+	result := api.ResourceList{}
+	for key, value := range a {
+		if other, found := b[key]; found {
+			if value.Cmp(other) <= 0 {
+				result[key] = *other.Copy()
+				continue
+			}
+		}
+		result[key] = *value.Copy()
+	}
+	for key, value := range b {
+		if _, found := result[key]; !found {
+			result[key] = *value.Copy()
+		}
+	}
+	return result
+}
+
 // Add returns the result of a + b for each named resource
 func Add(a api.ResourceList, b api.ResourceList) api.ResourceList {
 	result := api.ResourceList{}
@@ -75,6 +121,32 @@ func Add(a api.ResourceList, b api.ResourceList) api.ResourceList {
 		if _, found := result[key]; !found {
 			quantity := *value.Copy()
 			result[key] = quantity
+		}
+	}
+	return result
+}
+
+// SubtractWithNonNegativeResult - subtracts and returns result of a - b but
+// makes sure we don't return negative values to prevent negative resource usage.
+func SubtractWithNonNegativeResult(a api.ResourceList, b api.ResourceList) api.ResourceList {
+	zero := resource.MustParse("0")
+
+	result := api.ResourceList{}
+	for key, value := range a {
+		quantity := *value.Copy()
+		if other, found := b[key]; found {
+			quantity.Sub(other)
+		}
+		if quantity.Cmp(zero) > 0 {
+			result[key] = quantity
+		} else {
+			result[key] = zero
+		}
+	}
+
+	for key := range b {
+		if _, found := result[key]; !found {
+			result[key] = zero
 		}
 	}
 	return result
@@ -126,6 +198,16 @@ func Contains(items []api.ResourceName, item api.ResourceName) bool {
 	return ToSet(items).Has(string(item))
 }
 
+// ContainsPrefix returns true if the specified item has a prefix that contained in given prefix Set
+func ContainsPrefix(prefixSet []string, item api.ResourceName) bool {
+	for _, prefix := range prefixSet {
+		if strings.HasPrefix(string(item), prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // Intersection returns the intersection of both list of resources
 func Intersection(a []api.ResourceName, b []api.ResourceName) []api.ResourceName {
 	setA := ToSet(a)
@@ -149,6 +231,18 @@ func IsZero(a api.ResourceList) bool {
 	return true
 }
 
+// IsNegative returns the set of resource names that have a negative value.
+func IsNegative(a api.ResourceList) []api.ResourceName {
+	results := []api.ResourceName{}
+	zero := resource.MustParse("0")
+	for k, v := range a {
+		if v.Cmp(zero) < 0 {
+			results = append(results, k)
+		}
+	}
+	return results
+}
+
 // ToSet takes a list of resource names and converts to a string set
 func ToSet(resourceNames []api.ResourceName) sets.String {
 	result := sets.NewString()
@@ -156,4 +250,42 @@ func ToSet(resourceNames []api.ResourceName) sets.String {
 		result.Insert(string(resourceName))
 	}
 	return result
+}
+
+// CalculateUsage calculates and returns the requested ResourceList usage
+func CalculateUsage(namespaceName string, scopes []api.ResourceQuotaScope, hardLimits api.ResourceList, registry Registry) (api.ResourceList, error) {
+	// find the intersection between the hard resources on the quota
+	// and the resources this controller can track to know what we can
+	// look to measure updated usage stats for
+	hardResources := ResourceNames(hardLimits)
+	potentialResources := []api.ResourceName{}
+	evaluators := registry.List()
+	for _, evaluator := range evaluators {
+		potentialResources = append(potentialResources, evaluator.MatchingResources(hardResources)...)
+	}
+	// NOTE: the intersection just removes duplicates since the evaluator match intersects with hard
+	matchedResources := Intersection(hardResources, potentialResources)
+
+	// sum the observed usage from each evaluator
+	newUsage := api.ResourceList{}
+	for _, evaluator := range evaluators {
+		// only trigger the evaluator if it matches a resource in the quota, otherwise, skip calculating anything
+		intersection := evaluator.MatchingResources(matchedResources)
+		if len(intersection) == 0 {
+			continue
+		}
+
+		usageStatsOptions := UsageStatsOptions{Namespace: namespaceName, Scopes: scopes, Resources: intersection}
+		stats, err := evaluator.UsageStats(usageStatsOptions)
+		if err != nil {
+			return nil, err
+		}
+		newUsage = Add(newUsage, stats.Used)
+	}
+
+	// mask the observed usage to only the set of resources tracked by this quota
+	// merge our observed usage with the quota usage status
+	// if the new usage is different than the last usage, we will need to do an update
+	newUsage = Mask(newUsage, matchedResources)
+	return newUsage, nil
 }

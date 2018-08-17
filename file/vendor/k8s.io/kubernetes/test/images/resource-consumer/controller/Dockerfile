@@ -1,4 +1,4 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM busybox
-MAINTAINER Jerzy Szczepkowski <jsz@google.com>
+FROM BASEIMAGE
 ADD controller /controller
 EXPOSE 8080
 ENTRYPOINT ["/controller"]

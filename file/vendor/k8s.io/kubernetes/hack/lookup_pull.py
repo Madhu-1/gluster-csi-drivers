@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 The Kubernetes Authors All rights reserved.
+# Copyright 2015 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import sys
 import urllib2
 
 PULLQUERY=("https://api.github.com/repos/"
-           "GoogleCloudPlatform/kubernetes/pulls/{pull}")
+           "kubernetes/kubernetes/pulls/{pull}")
 LOGIN="login"
 TITLE="title"
 USER="user"

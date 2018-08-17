@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/kubernetes/pkg/util/flowcontrol"
+	"k8s.io/client-go/util/flowcontrol"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/oauth2"

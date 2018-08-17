@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func TestRunAsAnyValidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error initializing NewRunAsAny %v", err)
 	}
-	errs := s.Validate(nil, nil)
+	errs := s.Validate(nil, nil, nil, nil, nil)
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors validating with ")
 	}

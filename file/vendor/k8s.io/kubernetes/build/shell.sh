@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2014 The Kubernetes Authors All rights reserved.
+# Copyright 2014 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ set -o nounset
 set -o pipefail
 
 KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
-source "$KUBE_ROOT/build/common.sh"
+source "${KUBE_ROOT}/build/common.sh"
 
-kube::build::verify_prereqs
-kube::build::build_image
-kube::build::run_build_command bash || true
+KUBE_RUN_COPY_OUTPUT="${KUBE_RUN_COPY_OUTPUT:-n}" "${KUBE_ROOT}/build/run.sh" bash "$@"

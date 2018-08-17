@@ -1,7 +1,7 @@
-// +build cgo,linux
+// +build linux
 
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,11 +23,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
+	"time"
+
+	cmutil "k8s.io/kubernetes/pkg/kubelet/cm/util"
 
 	"github.com/golang/glog"
-	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
-	"github.com/opencontainers/runc/libcontainer/configs"
 )
 
 func NewOOMAdjuster() *OOMAdjuster {
@@ -40,13 +42,7 @@ func NewOOMAdjuster() *OOMAdjuster {
 }
 
 func getPids(cgroupName string) ([]int, error) {
-	fsManager := fs.Manager{
-		Cgroups: &configs.Cgroup{
-			Parent: "/",
-			Name:   cgroupName,
-		},
-	}
-	return fsManager.GetPids()
+	return cmutil.GetPids(filepath.Join("/", cgroupName))
 }
 
 // Writes 'value' to /proc/<pid>/oom_score_adj. PID = 0 means self
@@ -77,6 +73,7 @@ func applyOOMScoreAdj(pid int, oomScoreAdj int) error {
 			}
 
 			glog.V(3).Info(err)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		return nil

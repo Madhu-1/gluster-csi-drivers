@@ -2,7 +2,10 @@ package utils
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"reflect"
@@ -67,7 +70,7 @@ func IsLocalAddress(address string) (bool, error) {
 func ParseHostAndBrickPath(brickPath string) (string, string, error) {
 	i := strings.LastIndex(brickPath, ":")
 	if i == -1 {
-		log.WithField("brick", brickPath).Error(errors.ErrInvalidBrickPath.Error())
+		log.WithError(errors.ErrInvalidBrickPath).WithField("brick", brickPath)
 		return "", "", errors.ErrInvalidBrickPath
 	}
 	hostname := brickPath[0:i]
@@ -219,4 +222,14 @@ func ExecuteCommandRun(cmdName string, arg ...string) error {
 	cmd.Stderr = &stderr
 
 	return execStderrCombined(cmd.Run(), &stderr)
+}
+
+//GenerateQsh generate the hash string to avoid URL tampering
+func GenerateQsh(r *http.Request) string {
+	// qsh URL tampering prevention.
+	//more info https://developer.atlassian.com/cloud/bitbucket/query-string-hash
+	claim := r.Method + "&" + r.URL.Path
+	hash := sha256.New()
+	hash.Write([]byte(claim))
+	return hex.EncodeToString(hash.Sum(nil))
 }

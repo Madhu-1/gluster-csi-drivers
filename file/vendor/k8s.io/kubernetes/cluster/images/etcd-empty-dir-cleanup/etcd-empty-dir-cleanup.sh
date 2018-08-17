@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-# Copyright 2014 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 echo "Removing empty directories from etcd..."
 
 cleanup_empty_dirs () {
-  if [[ $(${ETCDCTL} ls $1) ]]; then
+  if [ "$(${ETCDCTL} ls $1)" ]; then
     for SUBDIR in $(${ETCDCTL} ls -p $1 | grep "/$")
     do
       cleanup_empty_dirs ${SUBDIR}

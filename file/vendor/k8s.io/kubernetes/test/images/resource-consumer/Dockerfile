@@ -1,4 +1,4 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM jess/stress
-MAINTAINER Ewa Socala <socaa@google.com>
+FROM BASEIMAGE
+
+CROSS_BUILD_COPY qemu-QEMUARCH-static /usr/bin/
+
+RUN clean-install stress
+
 ADD consumer /consumer
 ADD consume-cpu /consume-cpu
 EXPOSE 8080

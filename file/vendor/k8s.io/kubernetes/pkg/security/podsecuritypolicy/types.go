@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,24 +17,29 @@ limitations under the License.
 package podsecuritypolicy
 
 import (
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	api "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/apparmor"
 	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/capabilities"
 	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/group"
+	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/seccomp"
 	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/selinux"
+	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/sysctl"
 	"k8s.io/kubernetes/pkg/security/podsecuritypolicy/user"
-	"k8s.io/kubernetes/pkg/util/validation/field"
 )
 
 // Provider provides the implementation to generate a new security
 // context based on constraints or validate an existing security context against constraints.
 type Provider interface {
-	// Create a PodSecurityContext based on the given constraints.
-	CreatePodSecurityContext(pod *api.Pod) (*api.PodSecurityContext, error)
-	// Create a container SecurityContext based on the given constraints
-	CreateContainerSecurityContext(pod *api.Pod, container *api.Container) (*api.SecurityContext, error)
-	// Ensure a pod's SecurityContext is in compliance with the given constraints.
-	ValidatePodSecurityContext(pod *api.Pod, fldPath *field.Path) field.ErrorList
+	// DefaultPodSecurityContext sets the default values of the required but not filled fields.
+	// It modifies the SecurityContext and annotations of the provided pod.
+	DefaultPodSecurityContext(pod *api.Pod) error
+	// DefaultContainerSecurityContext sets the default values of the required but not filled fields.
+	// It modifies the SecurityContext of the container and annotations of the pod.
+	DefaultContainerSecurityContext(pod *api.Pod, container *api.Container) error
+	// Ensure a pod is in compliance with the given constraints.
+	ValidatePod(pod *api.Pod, fldPath *field.Path) field.ErrorList
 	// Ensure a container's SecurityContext is in compliance with the given constraints
 	ValidateContainerSecurityContext(pod *api.Pod, container *api.Container, fldPath *field.Path) field.ErrorList
 	// Get the name of the PSP that this provider was initialized with.
@@ -56,7 +61,10 @@ type StrategyFactory interface {
 type ProviderStrategies struct {
 	RunAsUserStrategy         user.RunAsUserStrategy
 	SELinuxStrategy           selinux.SELinuxStrategy
+	AppArmorStrategy          apparmor.Strategy
 	FSGroupStrategy           group.GroupStrategy
 	SupplementalGroupStrategy group.GroupStrategy
-	CapabilitiesStrategy      capabilities.CapabilitiesStrategy
+	CapabilitiesStrategy      capabilities.Strategy
+	SysctlsStrategy           sysctl.SysctlsStrategy
+	SeccompStrategy           seccomp.Strategy
 }

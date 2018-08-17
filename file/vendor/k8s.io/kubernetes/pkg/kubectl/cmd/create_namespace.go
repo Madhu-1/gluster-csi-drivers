@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,31 +17,34 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
 
 	"k8s.io/kubernetes/pkg/kubectl"
+	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	"k8s.io/kubernetes/pkg/kubectl/util/i18n"
 )
 
-const (
-	namespaceLong = `
-Create a namespace with the specified name.`
+var (
+	namespaceLong = templates.LongDesc(i18n.T(`
+		Create a namespace with the specified name.`))
 
-	namespaceExample = `  # Create a new namespace named my-namespace
-  kubectl create namespace my-namespace`
+	namespaceExample = templates.Examples(i18n.T(`
+	  # Create a new namespace named my-namespace
+	  kubectl create namespace my-namespace`))
 )
 
 // NewCmdCreateNamespace is a macro command to create a new namespace
-func NewCmdCreateNamespace(f *cmdutil.Factory, cmdOut io.Writer) *cobra.Command {
+func NewCmdCreateNamespace(f cmdutil.Factory, cmdOut io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "namespace NAME [--dry-run]",
-		Aliases: []string{"ns"},
-		Short:   "Create a namespace with the specified name.",
-		Long:    namespaceLong,
-		Example: namespaceExample,
+		Use: "namespace NAME [--dry-run]",
+		DisableFlagsInUseLine: true,
+		Aliases:               []string{"ns"},
+		Short:                 i18n.T("Create a namespace with the specified name"),
+		Long:                  namespaceLong,
+		Example:               namespaceExample,
 		Run: func(cmd *cobra.Command, args []string) {
 			err := CreateNamespace(f, cmdOut, cmd, args)
 			cmdutil.CheckErr(err)
@@ -56,7 +59,7 @@ func NewCmdCreateNamespace(f *cmdutil.Factory, cmdOut io.Writer) *cobra.Command 
 }
 
 // CreateNamespace implements the behavior to run the create namespace command
-func CreateNamespace(f *cmdutil.Factory, cmdOut io.Writer, cmd *cobra.Command, args []string) error {
+func CreateNamespace(f cmdutil.Factory, cmdOut io.Writer, cmd *cobra.Command, args []string) error {
 	name, err := NameFromCommandArgs(cmd, args)
 	if err != nil {
 		return err
@@ -66,7 +69,7 @@ func CreateNamespace(f *cmdutil.Factory, cmdOut io.Writer, cmd *cobra.Command, a
 	case cmdutil.NamespaceV1GeneratorName:
 		generator = &kubectl.NamespaceGeneratorV1{Name: name}
 	default:
-		return cmdutil.UsageError(cmd, fmt.Sprintf("Generator: %s not supported.", generatorName))
+		return errUnsupportedGenerator(cmd, generatorName)
 	}
 	return RunCreateSubcommand(f, cmd, cmdOut, &CreateSubcommandOptions{
 		Name:                name,

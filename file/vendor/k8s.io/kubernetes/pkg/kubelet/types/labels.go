@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ const (
 	KubernetesPodNamespaceLabel  = "io.kubernetes.pod.namespace"
 	KubernetesPodUIDLabel        = "io.kubernetes.pod.uid"
 	KubernetesContainerNameLabel = "io.kubernetes.container.name"
+	KubernetesContainerTypeLabel = "io.kubernetes.container.type"
 )
 
 func GetContainerName(labels map[string]string) string {

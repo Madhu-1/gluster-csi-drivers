@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,15 +27,18 @@ retry() {
 }
 
 # This script is intended to be run from kubekins-test container with a
-# kubernetes repo mapped in. See hack/jenkins/gotest-dockerized.sh
+# kubernetes repo mapped in. See k8s.io/test-infra/scenarios/kubernetes_verify.py
 
 export PATH=${GOPATH}/bin:${PWD}/third_party/etcd:/usr/local/go/bin:${PATH}
 
-retry go get github.com/tools/godep && godep version
+# Produce a JUnit-style XML test report
+export KUBE_JUNIT_REPORT_DIR=${WORKSPACE}/artifacts
+# Set artifacts directory
+export ARTIFACTS_DIR=${WORKSPACE}/artifacts
 
 export LOG_LEVEL=4
 
 cd /go/src/k8s.io/kubernetes
 
 ./hack/install-etcd.sh
-./hack/verify-all.sh -v
+make verify

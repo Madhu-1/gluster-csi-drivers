@@ -1,4 +1,4 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
+# Copyright 2016 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ FROM BASEIMAGE
 # If we're building normally, for amd64, CROSS_BUILD lines are removed
 CROSS_BUILD_COPY qemu-ARCH-static /usr/bin/
 
-# All apt-get's must be in one run command or the
-# cleanup has no effect.
-RUN DEBIAN_FRONTEND=noninteractive apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y iptables \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y conntrack \
-    && rm -rf /var/lib/apt/lists/*
+RUN clean-install \
+    conntrack \
+    ebtables \
+    ipset \
+    iptables \
+    kmod

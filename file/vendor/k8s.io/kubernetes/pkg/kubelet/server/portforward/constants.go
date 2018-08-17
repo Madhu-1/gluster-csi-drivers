@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,4 +18,6 @@ limitations under the License.
 package portforward
 
 // The subprotocol "portforward.k8s.io" is used for port forwarding.
-const PortForwardProtocolV1Name = "portforward.k8s.io"
+const ProtocolV1Name = "portforward.k8s.io"
+
+var SupportedProtocols = []string{ProtocolV1Name}

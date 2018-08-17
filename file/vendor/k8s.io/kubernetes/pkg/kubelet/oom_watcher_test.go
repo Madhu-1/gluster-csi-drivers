@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,20 +19,19 @@ package kubelet
 import (
 	"testing"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/record"
+	"github.com/stretchr/testify/assert"
+
+	"k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	cadvisortest "k8s.io/kubernetes/pkg/kubelet/cadvisor/testing"
 )
 
 func TestBasic(t *testing.T) {
 	fakeRecorder := &record.FakeRecorder{}
 	mockCadvisor := &cadvisortest.Fake{}
-	node := &api.ObjectReference{}
+	node := &v1.ObjectReference{}
 	oomWatcher := NewOOMWatcher(mockCadvisor, fakeRecorder)
-	err := oomWatcher.Start(node)
-	if err != nil {
-		t.Errorf("Should not have failed: %v", err)
-	}
+	assert.NoError(t, oomWatcher.Start(node))
 
 	// TODO: Improve this test once cadvisor exports events.EventChannel as an interface
 	// and thereby allow using a mock version of cadvisor.

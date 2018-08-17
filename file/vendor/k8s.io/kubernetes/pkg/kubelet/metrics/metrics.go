@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,19 +26,27 @@ import (
 )
 
 const (
-	KubeletSubsystem              = "kubelet"
-	PodWorkerLatencyKey           = "pod_worker_latency_microseconds"
-	SyncPodsLatencyKey            = "sync_pods_latency_microseconds"
-	PodStartLatencyKey            = "pod_start_latency_microseconds"
-	PodStatusLatencyKey           = "generate_pod_status_latency_microseconds"
-	ContainerManagerOperationsKey = "container_manager_latency_microseconds"
-	DockerOperationsLatencyKey    = "docker_operations_latency_microseconds"
-	DockerOperationsKey           = "docker_operations"
-	DockerOperationsErrorsKey     = "docker_operations_errors"
-	DockerOperationsTimeoutKey    = "docker_operations_timeout"
-	PodWorkerStartLatencyKey      = "pod_worker_start_latency_microseconds"
-	PLEGRelistLatencyKey          = "pleg_relist_latency_microseconds"
-	PLEGRelistIntervalKey         = "pleg_relist_interval_microseconds"
+	KubeletSubsystem             = "kubelet"
+	PodWorkerLatencyKey          = "pod_worker_latency_microseconds"
+	PodStartLatencyKey           = "pod_start_latency_microseconds"
+	CgroupManagerOperationsKey   = "cgroup_manager_latency_microseconds"
+	PodWorkerStartLatencyKey     = "pod_worker_start_latency_microseconds"
+	PLEGRelistLatencyKey         = "pleg_relist_latency_microseconds"
+	PLEGRelistIntervalKey        = "pleg_relist_interval_microseconds"
+	EvictionStatsAgeKey          = "eviction_stats_age_microseconds"
+	VolumeStatsCapacityBytesKey  = "volume_stats_capacity_bytes"
+	VolumeStatsAvailableBytesKey = "volume_stats_available_bytes"
+	VolumeStatsUsedBytesKey      = "volume_stats_used_bytes"
+	VolumeStatsInodesKey         = "volume_stats_inodes"
+	VolumeStatsInodesFreeKey     = "volume_stats_inodes_free"
+	VolumeStatsInodesUsedKey     = "volume_stats_inodes_used"
+	// Metrics keys of remote runtime operations
+	RuntimeOperationsKey        = "runtime_operations"
+	RuntimeOperationsLatencyKey = "runtime_operations_latency_microseconds"
+	RuntimeOperationsErrorsKey  = "runtime_operations_errors"
+	// Metrics keys of device plugin operations
+	DevicePluginRegistrationCountKey = "device_plugin_registration_count"
+	DevicePluginAllocationLatencyKey = "device_plugin_alloc_latency_microseconds"
 )
 
 var (
@@ -57,13 +65,6 @@ var (
 		},
 		[]string{"operation_type"},
 	)
-	SyncPodsLatency = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      SyncPodsLatencyKey,
-			Help:      "Latency in microseconds to sync all pods.",
-		},
-	)
 	PodStartLatency = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: KubeletSubsystem,
@@ -71,18 +72,11 @@ var (
 			Help:      "Latency in microseconds for a single pod to go from pending to running. Broken down by podname.",
 		},
 	)
-	PodStatusLatency = prometheus.NewSummary(
+	CgroupManagerLatency = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Subsystem: KubeletSubsystem,
-			Name:      PodStatusLatencyKey,
-			Help:      "Latency in microseconds to generate status for a single pod.",
-		},
-	)
-	ContainerManagerLatency = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      ContainerManagerOperationsKey,
-			Help:      "Latency in microseconds for container manager operations. Broken down by method.",
+			Name:      CgroupManagerOperationsKey,
+			Help:      "Latency in microseconds for cgroup manager operations. Broken down by method.",
 		},
 		[]string{"operation_type"},
 	)
@@ -92,38 +86,6 @@ var (
 			Name:      PodWorkerStartLatencyKey,
 			Help:      "Latency in microseconds from seeing a pod to starting a worker.",
 		},
-	)
-	DockerOperationsLatency = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      DockerOperationsLatencyKey,
-			Help:      "Latency in microseconds of Docker operations. Broken down by operation type.",
-		},
-		[]string{"operation_type"},
-	)
-	DockerOperations = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      DockerOperationsKey,
-			Help:      "Cumulative number of Docker operations by operation type.",
-		},
-		[]string{"operation_type"},
-	)
-	DockerOperationsErrors = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      DockerOperationsErrorsKey,
-			Help:      "Cumulative number of Docker operation errors by operation type.",
-		},
-		[]string{"operation_type"},
-	)
-	DockerOperationsTimeout = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Subsystem: KubeletSubsystem,
-			Name:      DockerOperationsTimeoutKey,
-			Help:      "Cumulative number of Docker operation timeout by operation type.",
-		},
-		[]string{"operation_type"},
 	)
 	PLEGRelistLatency = prometheus.NewSummary(
 		prometheus.SummaryOpts{
@@ -139,28 +101,80 @@ var (
 			Help:      "Interval in microseconds between relisting in PLEG.",
 		},
 	)
+	// Metrics of remote runtime operations.
+	RuntimeOperations = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      RuntimeOperationsKey,
+			Help:      "Cumulative number of runtime operations by operation type.",
+		},
+		[]string{"operation_type"},
+	)
+	RuntimeOperationsLatency = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      RuntimeOperationsLatencyKey,
+			Help:      "Latency in microseconds of runtime operations. Broken down by operation type.",
+		},
+		[]string{"operation_type"},
+	)
+	RuntimeOperationsErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      RuntimeOperationsErrorsKey,
+			Help:      "Cumulative number of runtime operation errors by operation type.",
+		},
+		[]string{"operation_type"},
+	)
+	EvictionStatsAge = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      EvictionStatsAgeKey,
+			Help:      "Time between when stats are collected, and when pod is evicted based on those stats by eviction signal",
+		},
+		[]string{"eviction_signal"},
+	)
+	DevicePluginRegistrationCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      DevicePluginRegistrationCountKey,
+			Help:      "Cumulative number of device plugin registrations. Broken down by resource name.",
+		},
+		[]string{"resource_name"},
+	)
+	DevicePluginAllocationLatency = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      DevicePluginAllocationLatencyKey,
+			Help:      "Latency in microseconds to serve a device plugin Allocation request. Broken down by resource name.",
+		},
+		[]string{"resource_name"},
+	)
 )
 
 var registerMetrics sync.Once
 
 // Register all metrics.
-func Register(containerCache kubecontainer.RuntimeCache) {
+func Register(containerCache kubecontainer.RuntimeCache, collectors ...prometheus.Collector) {
 	// Register the metrics.
 	registerMetrics.Do(func() {
 		prometheus.MustRegister(PodWorkerLatency)
 		prometheus.MustRegister(PodStartLatency)
-		prometheus.MustRegister(PodStatusLatency)
-		prometheus.MustRegister(DockerOperationsLatency)
-		prometheus.MustRegister(ContainerManagerLatency)
-		prometheus.MustRegister(SyncPodsLatency)
+		prometheus.MustRegister(CgroupManagerLatency)
 		prometheus.MustRegister(PodWorkerStartLatency)
 		prometheus.MustRegister(ContainersPerPodCount)
-		prometheus.MustRegister(DockerOperations)
-		prometheus.MustRegister(DockerOperationsErrors)
-		prometheus.MustRegister(DockerOperationsTimeout)
 		prometheus.MustRegister(newPodAndContainerCollector(containerCache))
 		prometheus.MustRegister(PLEGRelistLatency)
 		prometheus.MustRegister(PLEGRelistInterval)
+		prometheus.MustRegister(RuntimeOperations)
+		prometheus.MustRegister(RuntimeOperationsLatency)
+		prometheus.MustRegister(RuntimeOperationsErrors)
+		prometheus.MustRegister(EvictionStatsAge)
+		prometheus.MustRegister(DevicePluginRegistrationCount)
+		prometheus.MustRegister(DevicePluginAllocationLatency)
+		for _, collector := range collectors {
+			prometheus.MustRegister(collector)
+		}
 	})
 }
 

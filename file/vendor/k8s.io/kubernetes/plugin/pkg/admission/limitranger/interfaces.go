@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,14 +17,16 @@ limitations under the License.
 package limitranger
 
 import (
-	"k8s.io/kubernetes/pkg/admission"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/admission"
+	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 type LimitRangerActions interface {
-	// Limit is a pluggable function to enforce limits on the object.
-	Limit(limitRange *api.LimitRange, kind string, obj runtime.Object) error
+	// MutateLimit is a pluggable function to set limits on the object.
+	MutateLimit(limitRange *api.LimitRange, kind string, obj runtime.Object) error
+	// ValidateLimits is a pluggable function to enforce limits on the object.
+	ValidateLimit(limitRange *api.LimitRange, kind string, obj runtime.Object) error
 	// SupportsAttributes is a pluggable function to allow overridding what resources the limitranger
 	// supports.
 	SupportsAttributes(attr admission.Attributes) bool

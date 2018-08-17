@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,12 +23,13 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -60,9 +61,14 @@ type AtomicWriter struct {
 	logContext string
 }
 
+type FileProjection struct {
+	Data []byte
+	Mode int32
+}
+
 // NewAtomicWriter creates a new AtomicWriter configured to write to the given
 // target directory, or returns an error if the target directory does not exist.
-func NewAtomicWriter(targetDir, logContext string) (*AtomicWriter, error) {
+func NewAtomicWriter(targetDir string, logContext string) (*AtomicWriter, error) {
 	_, err := os.Stat(targetDir)
 	if os.IsNotExist(err) {
 		return nil, err
@@ -82,38 +88,35 @@ const (
 // The Write algorithm is:
 //
 //  1.  The payload is validated; if the payload is invalid, the function returns
-//  2.  The user-visible portion of the volume is walked to determine whether any
+//  2.  The current timestamped directory is detected by reading the data directory
+//      symlink
+//  3.  The old version of the volume is walked to determine whether any
 //      portion of the payload was deleted and is still present on disk.
-//      If the payload is already present on disk and there are no deleted files,
-//      the function returns
-//  3.  A check is made to determine whether data present in the payload has changed
-//  4.  A new timestamped dir is created
-//  5.  The payload is written to the new timestamped directory
-//  6.  Symlinks and directory for new user-visible files are created (if needed).
+//  4.  The data in the current timestamped directory is compared to the projected
+//      data to determine if an update is required.
+//  5.  A new timestamped dir is created
+//  6.  The payload is written to the new timestamped directory
+//  7.  Symlinks and directory for new user-visible files are created (if needed).
 //
-//      For example consider the files:
+//      For example, consider the files:
 //        <target-dir>/podName
 //        <target-dir>/user/labels
 //        <target-dir>/k8s/annotations
 //
 //      The user visible files are symbolic links into the internal data directory:
 //        <target-dir>/podName         -> ..data/podName
-//        <target-dir>/usr/labels      -> ../..data/usr/labels
-//        <target-dir>/k8s/annotations -> ../..data/k8s/annotations
-//
-//      Relative links are created into the data directory for files in subdirectories.
+//        <target-dir>/usr -> ..data/usr
+//        <target-dir>/k8s -> ..data/k8s
 //
 //      The data directory itself is a link to a timestamped directory with
 //      the real data:
 //        <target-dir>/..data          -> ..2016_02_01_15_04_05.12345678/
-//  7.  The current timestamped directory is detected by reading the data directory
-//      symlink
 //  8.  A symlink to the new timestamped directory ..data_tmp is created that will
 //      become the new data directory
 //  9.  The new data directory symlink is renamed to the data directory; rename is atomic
 // 10.  Old paths are removed from the user-visible portion of the target directory
 // 11.  The previous timestamped directory is removed, if it exists
-func (w *AtomicWriter) Write(payload map[string][]byte) error {
+func (w *AtomicWriter) Write(payload map[string]FileProjection) error {
 	// (1)
 	cleanPayload, err := validatePayload(payload)
 	if err != nil {
@@ -122,31 +125,50 @@ func (w *AtomicWriter) Write(payload map[string][]byte) error {
 	}
 
 	// (2)
-	pathsToRemove, err := w.pathsToRemove(cleanPayload)
+	dataDirPath := path.Join(w.targetDir, dataDirName)
+	oldTsDir, err := os.Readlink(dataDirPath)
 	if err != nil {
-		glog.Errorf("%s: error determining user-visible files to remove: %v", w.logContext, err)
-		return err
+		if !os.IsNotExist(err) {
+			glog.Errorf("%s: error reading link for data directory: %v", w.logContext, err)
+			return err
+		}
+		// although Readlink() returns "" on err, don't be fragile by relying on it (since it's not specified in docs)
+		// empty oldTsDir indicates that it didn't exist
+		oldTsDir = ""
+	}
+	oldTsPath := path.Join(w.targetDir, oldTsDir)
+
+	var pathsToRemove sets.String
+	// if there was no old version, there's nothing to remove
+	if len(oldTsDir) != 0 {
+		// (3)
+		pathsToRemove, err = w.pathsToRemove(cleanPayload, oldTsPath)
+		if err != nil {
+			glog.Errorf("%s: error determining user-visible files to remove: %v", w.logContext, err)
+			return err
+		}
+
+		// (4)
+		if should, err := shouldWritePayload(cleanPayload, oldTsPath); err != nil {
+			glog.Errorf("%s: error determining whether payload should be written to disk: %v", w.logContext, err)
+			return err
+		} else if !should && len(pathsToRemove) == 0 {
+			glog.V(4).Infof("%s: no update required for target directory %v", w.logContext, w.targetDir)
+			return nil
+		} else {
+			glog.V(4).Infof("%s: write required for target directory %v", w.logContext, w.targetDir)
+		}
 	}
 
-	// (3)
-	if should, err := w.shouldWritePayload(cleanPayload); err != nil {
-		glog.Errorf("%s: error determining whether payload should be written to disk: %v", w.logContext, err)
-		return err
-	} else if !should && len(pathsToRemove) == 0 {
-		glog.V(4).Infof("%s: no update required for target directory %v", w.logContext, w.targetDir)
-		return nil
-	} else {
-		glog.V(4).Infof("%s: write required for target directory %v", w.logContext, w.targetDir)
-	}
-
-	// (4)
+	// (5)
 	tsDir, err := w.newTimestampDir()
 	if err != nil {
 		glog.V(4).Infof("%s: error creating new ts data directory: %v", w.logContext, err)
 		return err
 	}
+	tsDirName := filepath.Base(tsDir)
 
-	// (5)
+	// (6)
 	if err = w.writePayloadToDir(cleanPayload, tsDir); err != nil {
 		glog.Errorf("%s: error writing payload to ts data directory %s: %v", w.logContext, tsDir, err)
 		return err
@@ -154,18 +176,9 @@ func (w *AtomicWriter) Write(payload map[string][]byte) error {
 		glog.V(4).Infof("%s: performed write of new data to ts data directory: %s", w.logContext, tsDir)
 	}
 
-	// (6)
+	// (7)
 	if err = w.createUserVisibleFiles(cleanPayload); err != nil {
 		glog.Errorf("%s: error creating visible symlinks in %s: %v", w.logContext, w.targetDir, err)
-		return err
-	}
-
-	// (7)
-	_, tsDirName := filepath.Split(tsDir)
-	dataDirPath := path.Join(w.targetDir, dataDirName)
-	oldTsDir, err := os.Readlink(dataDirPath)
-	if err != nil && !os.IsNotExist(err) {
-		glog.Errorf("%s: error reading link for data directory: %v", w.logContext, err)
 		return err
 	}
 
@@ -178,7 +191,14 @@ func (w *AtomicWriter) Write(payload map[string][]byte) error {
 	}
 
 	// (9)
-	if err = os.Rename(newDataDirPath, dataDirPath); err != nil {
+	if runtime.GOOS == "windows" {
+		os.Remove(dataDirPath)
+		err = os.Symlink(tsDirName, dataDirPath)
+		os.Remove(newDataDirPath)
+	} else {
+		err = os.Rename(newDataDirPath, dataDirPath)
+	}
+	if err != nil {
 		os.Remove(newDataDirPath)
 		os.RemoveAll(tsDir)
 		glog.Errorf("%s: error renaming symbolic link for data directory %s: %v", w.logContext, newDataDirPath, err)
@@ -193,7 +213,7 @@ func (w *AtomicWriter) Write(payload map[string][]byte) error {
 
 	// (11)
 	if len(oldTsDir) > 0 {
-		if err = os.RemoveAll(path.Join(w.targetDir, oldTsDir)); err != nil {
+		if err = os.RemoveAll(oldTsPath); err != nil {
 			glog.Errorf("%s: error removing old data directory %s: %v", w.logContext, oldTsDir, err)
 			return err
 		}
@@ -203,8 +223,8 @@ func (w *AtomicWriter) Write(payload map[string][]byte) error {
 }
 
 // validatePayload returns an error if any path in the payload  returns a copy of the payload with the paths cleaned.
-func validatePayload(payload map[string][]byte) (map[string][]byte, error) {
-	cleanPayload := make(map[string][]byte)
+func validatePayload(payload map[string]FileProjection) (map[string]FileProjection, error) {
+	cleanPayload := make(map[string]FileProjection)
 	for k, content := range payload {
 		if err := validatePath(k); err != nil {
 			return nil, err
@@ -237,7 +257,7 @@ func validatePath(targetPath string) error {
 	}
 
 	if len(targetPath) > maxPathLength {
-		return fmt.Errorf("invalid path: must be less than %d characters", maxPathLength)
+		return fmt.Errorf("invalid path: must be less than or equal to %d characters", maxPathLength)
 	}
 
 	items := strings.Split(targetPath, string(os.PathSeparator))
@@ -246,7 +266,7 @@ func validatePath(targetPath string) error {
 			return fmt.Errorf("invalid path: must not contain '..': %s", targetPath)
 		}
 		if len(item) > maxFileNameLength {
-			return fmt.Errorf("invalid path: filenames must be less than %d characters", maxFileNameLength)
+			return fmt.Errorf("invalid path: filenames must be less than or equal to %d characters", maxFileNameLength)
 		}
 	}
 	if strings.HasPrefix(items[0], "..") && len(items[0]) > 2 {
@@ -257,9 +277,9 @@ func validatePath(targetPath string) error {
 }
 
 // shouldWritePayload returns whether the payload should be written to disk.
-func (w *AtomicWriter) shouldWritePayload(payload map[string][]byte) (bool, error) {
-	for userVisiblePath, content := range payload {
-		shouldWrite, err := w.shouldWriteFile(path.Join(w.targetDir, userVisiblePath), content)
+func shouldWritePayload(payload map[string]FileProjection, oldTsDir string) (bool, error) {
+	for userVisiblePath, fileProjection := range payload {
+		shouldWrite, err := shouldWriteFile(path.Join(oldTsDir, userVisiblePath), fileProjection.Data)
 		if err != nil {
 			return false, err
 		}
@@ -273,7 +293,7 @@ func (w *AtomicWriter) shouldWritePayload(payload map[string][]byte) (bool, erro
 }
 
 // shouldWriteFile returns whether a new version of a file should be written to disk.
-func (w *AtomicWriter) shouldWriteFile(path string, content []byte) (bool, error) {
+func shouldWriteFile(path string, content []byte) (bool, error) {
 	_, err := os.Lstat(path)
 	if os.IsNotExist(err) {
 		return true, nil
@@ -287,19 +307,15 @@ func (w *AtomicWriter) shouldWriteFile(path string, content []byte) (bool, error
 	return (bytes.Compare(content, contentOnFs) != 0), nil
 }
 
-// pathsToRemove walks the user-visible portion of the target directory and
+// pathsToRemove walks the current version of the data directory and
 // determines which paths should be removed (if any) after the payload is
 // written to the target directory.
-func (w *AtomicWriter) pathsToRemove(payload map[string][]byte) (sets.String, error) {
+func (w *AtomicWriter) pathsToRemove(payload map[string]FileProjection, oldTsDir string) (sets.String, error) {
 	paths := sets.NewString()
 	visitor := func(path string, info os.FileInfo, err error) error {
-		if path == w.targetDir {
-			return nil
-		}
-
-		relativePath := strings.TrimPrefix(path, w.targetDir)
-		relativePath = strings.TrimPrefix(relativePath, "/")
-		if strings.HasPrefix(relativePath, "..") {
+		relativePath := strings.TrimPrefix(path, oldTsDir)
+		relativePath = strings.TrimPrefix(relativePath, string(os.PathSeparator))
+		if relativePath == "" {
 			return nil
 		}
 
@@ -307,7 +323,7 @@ func (w *AtomicWriter) pathsToRemove(payload map[string][]byte) (sets.String, er
 		return nil
 	}
 
-	err := filepath.Walk(w.targetDir, visitor)
+	err := filepath.Walk(oldTsDir, visitor)
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
@@ -322,7 +338,7 @@ func (w *AtomicWriter) pathsToRemove(payload map[string][]byte) (sets.String, er
 		for subPath := file; subPath != ""; {
 			newPaths.Insert(subPath)
 			subPath, _ = filepath.Split(subPath)
-			subPath = strings.TrimSuffix(subPath, "/")
+			subPath = strings.TrimSuffix(subPath, string(os.PathSeparator))
 		}
 	}
 	glog.V(5).Infof("%s: new paths:       %+v", w.targetDir, newPaths.List())
@@ -335,7 +351,7 @@ func (w *AtomicWriter) pathsToRemove(payload map[string][]byte) (sets.String, er
 
 // newTimestampDir creates a new timestamp directory
 func (w *AtomicWriter) newTimestampDir() (string, error) {
-	tsDir, err := ioutil.TempDir(w.targetDir, fmt.Sprintf("..%s.", time.Now().Format("1981_02_01_15_04_05")))
+	tsDir, err := ioutil.TempDir(w.targetDir, time.Now().UTC().Format("..2006_01_02_15_04_05."))
 	if err != nil {
 		glog.Errorf("%s: unable to create new temp directory: %v", w.logContext, err)
 		return "", err
@@ -355,8 +371,10 @@ func (w *AtomicWriter) newTimestampDir() (string, error) {
 
 // writePayloadToDir writes the given payload to the given directory.  The
 // directory must exist.
-func (w *AtomicWriter) writePayloadToDir(payload map[string][]byte, dir string) error {
-	for userVisiblePath, content := range payload {
+func (w *AtomicWriter) writePayloadToDir(payload map[string]FileProjection, dir string) error {
+	for userVisiblePath, fileProjection := range payload {
+		content := fileProjection.Data
+		mode := os.FileMode(fileProjection.Mode)
 		fullPath := path.Join(dir, userVisiblePath)
 		baseDir, _ := filepath.Split(fullPath)
 
@@ -366,10 +384,18 @@ func (w *AtomicWriter) writePayloadToDir(payload map[string][]byte, dir string) 
 			return err
 		}
 
-		err = ioutil.WriteFile(fullPath, content, 0644)
+		err = ioutil.WriteFile(fullPath, content, mode)
 		if err != nil {
-			glog.Errorf("%s: unable to write file %s: %v", w.logContext, fullPath, err)
+			glog.Errorf("%s: unable to write file %s with mode %v: %v", w.logContext, fullPath, mode, err)
 			return err
+		}
+		// Chmod is needed because ioutil.WriteFile() ends up calling
+		// open(2) to create the file, so the final mode used is "mode &
+		// ~umask". But we want to make sure the specified mode is used
+		// in the file no matter what the umask is.
+		err = os.Chmod(fullPath, mode)
+		if err != nil {
+			glog.Errorf("%s: unable to write file %s with mode %v: %v", w.logContext, fullPath, mode, err)
 		}
 	}
 
@@ -382,34 +408,22 @@ func (w *AtomicWriter) writePayloadToDir(payload map[string][]byte, dir string) 
 //
 // Viz:
 // For files: "bar", "foo/bar", "baz/bar", "foo/baz/blah"
-// the following symlinks and subdirectories are created:
-// bar          -> ..data/bar
-// foo/bar      -> ../..data/foo/bar
-// baz/bar      -> ../..data/baz/bar
-// foo/baz/blah -> ../../..data/foo/baz/blah
-func (w *AtomicWriter) createUserVisibleFiles(payload map[string][]byte) error {
+// the following symlinks are created:
+// bar -> ..data/bar
+// foo -> ..data/foo
+// baz -> ..data/baz
+func (w *AtomicWriter) createUserVisibleFiles(payload map[string]FileProjection) error {
 	for userVisiblePath := range payload {
-		dir, _ := filepath.Split(userVisiblePath)
-		subDirs := 0
-		if len(dir) > 0 {
-			// If dir is not empty, the projection path contains at least one
-			// subdirectory (example: userVisiblePath := "foo/bar").
-			// Since filepath.Split leaves a trailing path separator, in this
-			// example, dir = "foo/".  In order to calculate the number of
-			// subdirectories, we must subtract 1 from the number returned by split.
-			subDirs = len(strings.Split(dir, "/")) - 1
-			err := os.MkdirAll(path.Join(w.targetDir, dir), os.ModePerm)
-			if err != nil {
-				return err
-			}
+		slashpos := strings.Index(userVisiblePath, string(os.PathSeparator))
+		if slashpos == -1 {
+			slashpos = len(userVisiblePath)
 		}
-		_, err := os.Readlink(path.Join(w.targetDir, userVisiblePath))
+		linkname := userVisiblePath[:slashpos]
+		_, err := os.Readlink(path.Join(w.targetDir, linkname))
 		if err != nil && os.IsNotExist(err) {
-			// The link into the data directory for this path doesn't exist; create it,
-			// respecting the number of subdirectories necessary to link
-			// correctly back into the data directory.
-			visibleFile := path.Join(w.targetDir, userVisiblePath)
-			dataDirFile := path.Join(strings.Repeat("../", subDirs), dataDirName, userVisiblePath)
+			// The link into the data directory for this path doesn't exist; create it
+			visibleFile := path.Join(w.targetDir, linkname)
+			dataDirFile := path.Join(dataDirName, linkname)
 
 			err = os.Symlink(dataDirFile, visibleFile)
 			if err != nil {
@@ -423,13 +437,18 @@ func (w *AtomicWriter) createUserVisibleFiles(payload map[string][]byte) error {
 // removeUserVisiblePaths removes the set of paths from the user-visible
 // portion of the writer's target directory.
 func (w *AtomicWriter) removeUserVisiblePaths(paths sets.String) error {
-	orderedPaths := paths.List()
-	for ii := len(orderedPaths) - 1; ii >= 0; ii-- {
-		if err := os.Remove(path.Join(w.targetDir, orderedPaths[ii])); err != nil {
-			glog.Errorf("%s: error pruning old user-visible path %s: %v", w.logContext, orderedPaths[ii], err)
-			return err
+	ps := string(os.PathSeparator)
+	var lasterr error
+	for p := range paths {
+		// only remove symlinks from the volume root directory (i.e. items that don't contain '/')
+		if strings.Contains(p, ps) {
+			continue
+		}
+		if err := os.Remove(path.Join(w.targetDir, p)); err != nil {
+			glog.Errorf("%s: error pruning old user-visible path %s: %v", w.logContext, p, err)
+			lasterr = err
 		}
 	}
 
-	return nil
+	return lasterr
 }

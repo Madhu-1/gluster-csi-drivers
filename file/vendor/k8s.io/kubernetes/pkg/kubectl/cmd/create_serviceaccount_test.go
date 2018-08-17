@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,17 +21,24 @@ import (
 	"net/http"
 	"testing"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/unversioned/fake"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest/fake"
+	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
+	"k8s.io/kubernetes/pkg/kubectl/scheme"
 )
 
 func TestCreateServiceAccount(t *testing.T) {
-	serviceAccountObject := &api.ServiceAccount{}
+	serviceAccountObject := &v1.ServiceAccount{}
 	serviceAccountObject.Name = "my-service-account"
-	f, tf, codec := NewAPIFactory()
-	tf.Printer = &testPrinter{}
+	tf := cmdtesting.NewTestFactory()
+	codec := legacyscheme.Codecs.LegacyCodec(scheme.Versions...)
+	ns := legacyscheme.Codecs
+
 	tf.Client = &fake.RESTClient{
-		Codec: codec,
+		GroupVersion:         schema.GroupVersion{Version: "v1"},
+		NegotiatedSerializer: ns,
 		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
 			switch p, m := req.URL.Path, req.Method; {
 			case p == "/namespaces/test/serviceaccounts" && m == "POST":
@@ -44,7 +51,7 @@ func TestCreateServiceAccount(t *testing.T) {
 	}
 	tf.Namespace = "test"
 	buf := bytes.NewBuffer([]byte{})
-	cmd := NewCmdCreateServiceAccount(f, buf)
+	cmd := NewCmdCreateServiceAccount(tf, buf)
 	cmd.Flags().Set("output", "name")
 	cmd.Run(cmd, []string{serviceAccountObject.Name})
 	expectedOutput := "serviceaccount/" + serviceAccountObject.Name + "\n"

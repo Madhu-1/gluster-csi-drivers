@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
-	"k8s.io/kubernetes/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/diff"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type stepParserTest struct {

@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,4 +19,15 @@ package types
 const (
 	// system default DNS resolver configuration
 	ResolvConfDefault = "/etc/resolv.conf"
+
+	// different container runtimes
+	DockerContainerRuntime = "docker"
+	RktContainerRuntime    = "rkt"
+	RemoteContainerRuntime = "remote"
+
+	// User visible keys for managing node allocatable enforcement on the node.
+	NodeAllocatableEnforcementKey = "pods"
+	SystemReservedEnforcementKey  = "system-reserved"
+	KubeReservedEnforcementKey    = "kube-reserved"
+	NodeAllocatableNoneKey        = "none"
 )

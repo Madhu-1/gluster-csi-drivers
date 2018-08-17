@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -89,23 +89,5 @@ func verifyCallbackDoesntHappens(t *testing.T, callbackCh <-chan interface{}) bo
 		return false
 	case <-time.After(callbackTimeout):
 		return true
-	}
-}
-
-func verifyNoError(t *testing.T, err error, name string) {
-	if err != nil {
-		t.Fatalf("Unexpected response on %q. Expected: <no error> Actual: <%v>", name, err)
-	}
-}
-
-func verifyError(t *testing.T, err error, name string) {
-	if err == nil {
-		t.Fatalf("Unexpected response on %q. Expected: <error> Actual: <no error>", name)
-	}
-}
-
-func verifyMsg(t *testing.T, expected, actual string) {
-	if actual != expected {
-		t.Fatalf("Unexpected testMsg value. Expected: <%v> Actual: <%v>", expected, actual)
 	}
 }

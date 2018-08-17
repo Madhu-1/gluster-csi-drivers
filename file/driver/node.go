@@ -48,7 +48,7 @@ func (d *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublish
 	}
 
 	targetPath := req.GetTargetPath()
-	notMnt, err := mount.New().IsLikelyNotMountPoint(targetPath)
+	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(targetPath, 0750); err != nil {
@@ -74,7 +74,7 @@ func (d *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublish
 	source := fmt.Sprintf("%s:%s", s, ep)
 
 	//TODO mounting with gluster backup server is pending
-	mounter := mount.New()
+	mounter := mount.New("")
 	err = mounter.Mount(source, targetPath, "glusterfs", mo)
 	if err != nil {
 		if os.IsPermission(err) {
@@ -108,7 +108,7 @@ func (d *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpub
 	ll.Info("node unpublish volume called")
 
 	targetPath := req.GetTargetPath()
-	notMnt, err := mount.New().IsLikelyNotMountPoint(targetPath)
+	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
 
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -121,7 +121,7 @@ func (d *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpub
 		return nil, status.Error(codes.NotFound, "Volume not mounted")
 	}
 
-	err = util.UnmountPath(req.GetTargetPath(), mount.New())
+	err = util.UnmountPath(req.GetTargetPath(), mount.New(""))
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

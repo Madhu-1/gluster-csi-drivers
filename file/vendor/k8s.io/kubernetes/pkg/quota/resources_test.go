@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package quota
 import (
 	"testing"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/api/resource"
+	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 func TestEquals(t *testing.T) {
@@ -72,6 +72,41 @@ func TestEquals(t *testing.T) {
 	for testName, testCase := range testCases {
 		if result := Equals(testCase.a, testCase.b); result != testCase.expected {
 			t.Errorf("%s expected: %v, actual: %v, a=%v, b=%v", testName, testCase.expected, result, testCase.a, testCase.b)
+		}
+	}
+}
+
+func TestMax(t *testing.T) {
+	testCases := map[string]struct {
+		a        api.ResourceList
+		b        api.ResourceList
+		expected api.ResourceList
+	}{
+		"noKeys": {
+			a:        api.ResourceList{},
+			b:        api.ResourceList{},
+			expected: api.ResourceList{},
+		},
+		"toEmpty": {
+			a:        api.ResourceList{api.ResourceCPU: resource.MustParse("100m")},
+			b:        api.ResourceList{},
+			expected: api.ResourceList{api.ResourceCPU: resource.MustParse("100m")},
+		},
+		"matching": {
+			a:        api.ResourceList{api.ResourceCPU: resource.MustParse("100m")},
+			b:        api.ResourceList{api.ResourceCPU: resource.MustParse("150m")},
+			expected: api.ResourceList{api.ResourceCPU: resource.MustParse("150m")},
+		},
+		"matching(reverse)": {
+			a:        api.ResourceList{api.ResourceCPU: resource.MustParse("150m")},
+			b:        api.ResourceList{api.ResourceCPU: resource.MustParse("100m")},
+			expected: api.ResourceList{api.ResourceCPU: resource.MustParse("150m")},
+		},
+	}
+	for testName, testCase := range testCases {
+		sum := Max(testCase.a, testCase.b)
+		if result := Equals(testCase.expected, sum); !result {
+			t.Errorf("%s expected: %v, actual: %v", testName, testCase.expected, sum)
 		}
 	}
 }
@@ -191,6 +226,30 @@ func TestContains(t *testing.T) {
 	}
 }
 
+func TestContainsPrefix(t *testing.T) {
+	testCases := map[string]struct {
+		a        []string
+		b        api.ResourceName
+		expected bool
+	}{
+		"does-not-contain": {
+			a:        []string{api.ResourceHugePagesPrefix},
+			b:        api.ResourceCPU,
+			expected: false,
+		},
+		"does-contain": {
+			a:        []string{api.ResourceHugePagesPrefix},
+			b:        api.ResourceName(api.ResourceHugePagesPrefix + "2Mi"),
+			expected: true,
+		},
+	}
+	for testName, testCase := range testCases {
+		if actual := ContainsPrefix(testCase.a, testCase.b); actual != testCase.expected {
+			t.Errorf("%s expected: %v, actual: %v", testName, testCase.expected, actual)
+		}
+	}
+}
+
 func TestIsZero(t *testing.T) {
 	testCases := map[string]struct {
 		a        api.ResourceList
@@ -218,6 +277,40 @@ func TestIsZero(t *testing.T) {
 	for testName, testCase := range testCases {
 		if result := IsZero(testCase.a); result != testCase.expected {
 			t.Errorf("%s expected: %v, actual: %v", testName, testCase.expected, result)
+		}
+	}
+}
+
+func TestIsNegative(t *testing.T) {
+	testCases := map[string]struct {
+		a        api.ResourceList
+		expected []api.ResourceName
+	}{
+		"empty": {
+			a:        api.ResourceList{},
+			expected: []api.ResourceName{},
+		},
+		"some-negative": {
+			a: api.ResourceList{
+				api.ResourceCPU:    resource.MustParse("-10"),
+				api.ResourceMemory: resource.MustParse("0"),
+			},
+			expected: []api.ResourceName{api.ResourceCPU},
+		},
+		"all-negative": {
+			a: api.ResourceList{
+				api.ResourceCPU:    resource.MustParse("-200m"),
+				api.ResourceMemory: resource.MustParse("-1Gi"),
+			},
+			expected: []api.ResourceName{api.ResourceCPU, api.ResourceMemory},
+		},
+	}
+	for testName, testCase := range testCases {
+		actual := IsNegative(testCase.a)
+		actualSet := ToSet(actual)
+		expectedSet := ToSet(testCase.expected)
+		if !actualSet.Equal(expectedSet) {
+			t.Errorf("%s expected: %v, actual: %v", testName, expectedSet, actualSet)
 		}
 	}
 }

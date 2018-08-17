@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,9 +75,13 @@ func handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func write(w io.Writer) error {
-	configsGuard.Lock()
-	defer configsGuard.Unlock()
-	b, err := json.Marshal(configs)
+	var b []byte
+	var err error
+	func() {
+		configsGuard.RLock()
+		defer configsGuard.RUnlock()
+		b, err = json.Marshal(configs)
+	}()
 	if err != nil {
 		return fmt.Errorf("error marshaling json: %v", err)
 	}

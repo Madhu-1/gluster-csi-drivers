@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 The Kubernetes Authors All rights reserved.
+# Copyright 2015 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 # they are written using the latest API version.
 #
 # Steps to use this script to upgrade the cluster to a new version:
-# https://github.com/kubernetes/kubernetes/blob/master/docs/cluster_management.md#updgrading-to-a-different-api-version
+# https://kubernetes.io/docs/tasks/administer-cluster/cluster-management/#upgrading-to-a-different-api-version
 
 set -o errexit
 set -o nounset
@@ -48,6 +48,12 @@ declare -a resources=(
     "services"
     "jobs"
     "horizontalpodautoscalers"
+    "storageclasses"
+    "roles.rbac.authorization.k8s.io"
+    "rolebindings.rbac.authorization.k8s.io"
+    "clusterroles.rbac.authorization.k8s.io"
+    "clusterrolebindings.rbac.authorization.k8s.io"
+    "networkpolicies.networking.k8s.io"
 )
 
 # Find all the namespaces.

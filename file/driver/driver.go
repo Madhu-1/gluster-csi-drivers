@@ -31,7 +31,7 @@ func NewDriver(nodeID, endpoint, glusterURL, username, secret string) *Driver {
 	d := &Driver{}
 	d.nodeID = nodeID
 	d.endpoint = endpoint
-	d.client = restclient.New(glusterURL, username, secret, "", false)
+	d.client, _ = restclient.New(glusterURL, username, secret, "", false)
 	d.logger = logrus.New()
 
 	d.csiDriver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)

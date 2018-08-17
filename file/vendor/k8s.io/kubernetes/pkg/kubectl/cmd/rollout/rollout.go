@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,36 +19,48 @@ package rollout
 import (
 	"io"
 
+	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
+	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	"k8s.io/kubernetes/pkg/kubectl/util/i18n"
 )
 
-const (
-	rollout_long    = `Manages a deployment using subcommands like "kubectl rollout undo deployment/abc"`
-	rollout_example = `# Rollback to the previous deployment
-kubectl rollout undo deployment/abc`
-	rollout_valid_resources = `Valid resource types include:
-   * deployments
-`
+var (
+	rollout_long = templates.LongDesc(`
+		Manage the rollout of a resource.` + rollout_valid_resources)
+
+	rollout_example = templates.Examples(`
+		# Rollback to the previous deployment
+		kubectl rollout undo deployment/abc
+		
+		# Check the rollout status of a daemonset
+		kubectl rollout status daemonset/foo`)
+
+	rollout_valid_resources = dedent.Dedent(`
+		Valid resource types include:
+
+		   * deployments
+		   * daemonsets
+		   * statefulsets
+		`)
 )
 
-func NewCmdRollout(f *cmdutil.Factory, out io.Writer) *cobra.Command {
+func NewCmdRollout(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:     "rollout SUBCOMMAND",
-		Short:   "rollout manages a deployment",
+		Use: "rollout SUBCOMMAND",
+		DisableFlagsInUseLine: true,
+		Short:   i18n.T("Manage the rollout of a resource"),
 		Long:    rollout_long,
 		Example: rollout_example,
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
-		},
+		Run:     cmdutil.DefaultSubCommandRun(errOut),
 	}
 	// subcommands
 	cmd.AddCommand(NewCmdRolloutHistory(f, out))
 	cmd.AddCommand(NewCmdRolloutPause(f, out))
 	cmd.AddCommand(NewCmdRolloutResume(f, out))
 	cmd.AddCommand(NewCmdRolloutUndo(f, out))
-
 	cmd.AddCommand(NewCmdRolloutStatus(f, out))
 
 	return cmd

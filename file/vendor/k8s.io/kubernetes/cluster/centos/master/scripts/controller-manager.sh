@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2014 The Kubernetes Authors All rights reserved.
+# Copyright 2014 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,13 +29,17 @@ KUBE_CONTROLLER_MANAGER_ROOT_CA_FILE="--root-ca-file=/srv/kubernetes/ca.crt"
 # --service-account-private-key-file="": Filename containing a PEM-encoded private
 # RSA key used to sign service account tokens.
 KUBE_CONTROLLER_MANAGER_SERVICE_ACCOUNT_PRIVATE_KEY_FILE="--service-account-private-key-file=/srv/kubernetes/server.key"
+
+# --leader-elect
+KUBE_LEADER_ELECT="--leader-elect"
 EOF
 
 KUBE_CONTROLLER_MANAGER_OPTS="  \${KUBE_LOGTOSTDERR} \\
                                 \${KUBE_LOG_LEVEL}   \\
                                 \${KUBE_MASTER}      \\
                                 \${KUBE_CONTROLLER_MANAGER_ROOT_CA_FILE} \\
-                                \${KUBE_CONTROLLER_MANAGER_SERVICE_ACCOUNT_PRIVATE_KEY_FILE}"
+                                \${KUBE_CONTROLLER_MANAGER_SERVICE_ACCOUNT_PRIVATE_KEY_FILE}\\
+                                \${KUBE_LEADER_ELECT}"
 
 cat <<EOF >/usr/lib/systemd/system/kube-controller-manager.service
 [Unit]
@@ -53,4 +57,4 @@ EOF
 
 systemctl daemon-reload
 systemctl enable kube-controller-manager
-systemctl start kube-controller-manager
+systemctl restart kube-controller-manager

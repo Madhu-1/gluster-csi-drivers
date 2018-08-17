@@ -1,7 +1,7 @@
 // +build !windows
 
 /*
-Copyright 2015 The Kubernetes Authors All rights reserved.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ limitations under the License.
 
 package userspace
 
-import "syscall"
+import "golang.org/x/sys/unix"
 
 func setRLimit(limit uint64) error {
-	return syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{Max: limit, Cur: limit})
+	return unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{Max: limit, Cur: limit})
 }

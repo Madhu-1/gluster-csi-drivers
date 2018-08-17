@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ package stats
 
 import (
 	"time"
-
-	"k8s.io/kubernetes/pkg/kubelet/container"
 )
 
 // ResourceAnalyzer provides statistics on node resource consumption
@@ -39,9 +37,9 @@ type resourceAnalyzer struct {
 var _ ResourceAnalyzer = &resourceAnalyzer{}
 
 // NewResourceAnalyzer returns a new ResourceAnalyzer
-func NewResourceAnalyzer(statsProvider StatsProvider, calVolumeFrequency time.Duration, runtime container.Runtime) ResourceAnalyzer {
+func NewResourceAnalyzer(statsProvider StatsProvider, calVolumeFrequency time.Duration) ResourceAnalyzer {
 	fsAnalyzer := newFsResourceAnalyzer(statsProvider, calVolumeFrequency)
-	summaryProvider := NewSummaryProvider(statsProvider, fsAnalyzer, runtime)
+	summaryProvider := NewSummaryProvider(statsProvider)
 	return &resourceAnalyzer{fsAnalyzer, summaryProvider}
 }
 

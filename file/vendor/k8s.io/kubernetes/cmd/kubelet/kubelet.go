@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,30 +22,24 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
-	"runtime"
+	"time"
 
+	"k8s.io/apiserver/pkg/util/logs"
 	"k8s.io/kubernetes/cmd/kubelet/app"
-	"k8s.io/kubernetes/cmd/kubelet/app/options"
-	"k8s.io/kubernetes/pkg/util"
-	"k8s.io/kubernetes/pkg/util/flag"
-	"k8s.io/kubernetes/pkg/version/verflag"
-
-	"github.com/spf13/pflag"
+	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
+	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
 )
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	s := options.NewKubeletServer()
-	s.AddFlags(pflag.CommandLine)
+	rand.Seed(time.Now().UTC().UnixNano())
 
-	flag.InitFlags()
-	util.InitLogs()
-	defer util.FlushLogs()
+	command := app.NewKubeletCommand()
+	logs.InitLogs()
+	defer logs.FlushLogs()
 
-	verflag.PrintAndExitIfRequested()
-
-	if err := app.Run(s, nil); err != nil {
+	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}

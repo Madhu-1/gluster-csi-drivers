@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors All rights reserved.
+Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,56 +17,77 @@ limitations under the License.
 package integration
 
 import (
-	"fmt"
-	"math/rand"
 	"testing"
+	"time"
 
-	etcd "github.com/coreos/etcd/client"
-	"github.com/golang/glog"
-	"golang.org/x/net/context"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/test/integration/framework"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/storage/storagebackend"
+	clientset "k8s.io/client-go/kubernetes"
+	coreclient "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/pkg/transport"
 )
 
-func newEtcdClient() etcd.Client {
-	cfg := etcd.Config{
-		Endpoints: []string{framework.GetEtcdURLFromEnv()},
-	}
-	client, err := etcd.New(cfg)
-	if err != nil {
-		glog.Fatalf("unable to connect to etcd for testing: %v", err)
-	}
-	return client
-}
-
-func requireEtcd() {
-	if _, err := etcd.NewKeysAPI(newEtcdClient()).Get(context.TODO(), "/", nil); err != nil {
-		glog.Fatalf("unable to connect to etcd for integration testing: %v", err)
-	}
-}
-
-func withEtcdKey(f func(string)) {
-	prefix := fmt.Sprintf("/test-%d", rand.Int63())
-	defer etcd.NewKeysAPI(newEtcdClient()).Delete(context.TODO(), prefix, &etcd.DeleteOptions{Recursive: true})
-	f(prefix)
-}
-
-func deleteAllEtcdKeys() {
-	keysAPI := etcd.NewKeysAPI(newEtcdClient())
-	keys, err := keysAPI.Get(context.TODO(), "/", nil)
-	if err != nil {
-		glog.Fatalf("Unable to list root etcd keys: %v", err)
-	}
-	for _, node := range keys.Node.Nodes {
-		if _, err := keysAPI.Delete(context.TODO(), node.Key, &etcd.DeleteOptions{Recursive: true}); err != nil {
-			glog.Fatalf("Unable delete key: %v", err)
-		}
-	}
-
-}
-
-func deletePodOrErrorf(t *testing.T, c *client.Client, ns, name string) {
-	if err := c.Pods(ns).Delete(name, nil); err != nil {
+func DeletePodOrErrorf(t *testing.T, c clientset.Interface, ns, name string) {
+	if err := c.CoreV1().Pods(ns).Delete(name, nil); err != nil {
 		t.Errorf("unable to delete pod %v: %v", name, err)
 	}
+}
+
+// Requests to try.  Each one should be forbidden or not forbidden
+// depending on the authentication and authorization setup of the master.
+var Code200 = map[int]bool{200: true}
+var Code201 = map[int]bool{201: true}
+var Code400 = map[int]bool{400: true}
+var Code401 = map[int]bool{401: true}
+var Code403 = map[int]bool{403: true}
+var Code404 = map[int]bool{404: true}
+var Code405 = map[int]bool{405: true}
+var Code409 = map[int]bool{409: true}
+var Code422 = map[int]bool{422: true}
+var Code500 = map[int]bool{500: true}
+var Code503 = map[int]bool{503: true}
+
+// WaitForPodToDisappear polls the API server if the pod has been deleted.
+func WaitForPodToDisappear(podClient coreclient.PodInterface, podName string, interval, timeout time.Duration) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		_, err := podClient.Get(podName, metav1.GetOptions{})
+		if err == nil {
+			return false, nil
+		} else {
+			if errors.IsNotFound(err) {
+				return true, nil
+			} else {
+				return false, err
+			}
+		}
+	})
+}
+
+func GetEtcdKVClient(config storagebackend.Config) (clientv3.KV, error) {
+	tlsInfo := transport.TLSInfo{
+		CertFile: config.CertFile,
+		KeyFile:  config.KeyFile,
+		CAFile:   config.CAFile,
+	}
+
+	tlsConfig, err := tlsInfo.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := clientv3.Config{
+		Endpoints: config.ServerList,
+		TLS:       tlsConfig,
+	}
+
+	c, err := clientv3.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientv3.NewKV(c), nil
 }
