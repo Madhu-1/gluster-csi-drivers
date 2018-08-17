@@ -7,7 +7,7 @@ test:
 	#go vet github.com/gluster/gluster-csi-drivers/file/driver/...
 
 gluster-csi-driver:
-	if [ ! -d ./vendor ]; then dep ensure -v; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	go build -o build/gluster-csi-driver  main.go
 clean:
 	go clean -r -x
