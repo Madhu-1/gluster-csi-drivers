@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM centos:latest
+FROM centos:7.5.1804
 
 # Copy glusterfs-csi-driver from build directory
 COPY ./build/glusterfs-csi-driver /glusterfs-csi-driver

@@ -8,4 +8,4 @@ glusterfs-csi-driver:
 	go build -o build/glusterfs-csi-driver  cmd/glusterfs/main.go
 clean:
 	go clean -r -x
-	-rm -rf build
+	rm -rf build

@@ -8,21 +8,26 @@
         }
     },
     "spec": {
-        "containers": [{
-            "name": "redis",
-            "image": "redis",
-            "imagePullPolicy": "IfNotPresent",
-            "volumeMounts": [{
-                "mountPath": "/mnt/gluster",
-                "name": "glustercsivol"
-            }]
-        }],
-       "volumes": [{
-            "name": "glustercsivol",
-            "persistentVolumeClaim": {
-                "claimName": "gd2-csi-volume"
+        "containers": [
+            {
+                "name": "redis",
+                "image": "redis",
+                "imagePullPolicy": "IfNotPresent",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/mnt/gluster",
+                        "name": "glustercsivol"
+                    }
+                ]
             }
-        }]
+        ],
+        "volumes": [
+            {
+                "name": "glustercsivol",
+                "persistentVolumeClaim": {
+                    "claimName": "gd2-csi-volume"
+                }
+            }
+        ]
     }
 }
-
