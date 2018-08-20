@@ -25,7 +25,7 @@ func New(config *utils.Config) *GfDriver {
 
 	if config != nil {
 		gfd.Config = config
-		gfd.client = restclient.New(config.RestURL, config.RestUser, config.RestSecret, "", false)
+		gfd.client, _ = restclient.New(config.RestURL, config.RestUser, config.RestSecret, "", false)
 	} else {
 		glog.Errorf("GlusterFS CSI Driver initialization failed")
 		return nil

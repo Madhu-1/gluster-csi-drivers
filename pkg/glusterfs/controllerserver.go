@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	glusterDescAnn      = "GlusterFS-CSI"
-	glusterDescAnnValue = "gluster.org/glusterfs-csi"
-	defaultVolumeSize   = 1000 * utils.MB // minimum volume size ie 1 GB
+	glusterDescAnn            = "GlusterFS-CSI"
+	glusterDescAnnValue       = "gluster.org/glusterfs-csi"
+	defaultVolumeSize   int64 = 1000 * utils.MB // minimum volume size ie 1 GB
 )
 
 type ControllerServer struct {
@@ -45,7 +45,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	// If capacity mentioned, pick that or use default size 20 MB
 	volSizeBytes := defaultVolumeSize
 	if req.GetCapacityRange() != nil {
-		volSizeBytes = int(req.GetCapacityRange().GetRequiredBytes())
+		volSizeBytes = int64(req.GetCapacityRange().GetRequiredBytes())
 	}
 
 	volSizeMB := int(utils.RoundUpSize(volSizeBytes, 1024*1024))
@@ -291,7 +291,7 @@ func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 		entries = append(entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
 				Id:            vol.ID.String(),
-				CapacityBytes: int64(v.Size.Capacity * utils.MB),
+				CapacityBytes: (int64(v.Size.Capacity)) * utils.MB,
 			},
 		})
 	}
