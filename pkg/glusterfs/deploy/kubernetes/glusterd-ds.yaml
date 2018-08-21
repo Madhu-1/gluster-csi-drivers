@@ -18,7 +18,7 @@ spec:
     spec:
       hostNetwork: true
       containers:
-      - image: docker.io/humblec/glusterd2
+      - image: gluster/glusterd2-nightly
         imagePullPolicy: IfNotPresent
         name: glusterfs
         resources:
@@ -84,5 +84,3 @@ spec:
       - name: kernel-modules
         hostPath:
           path: "/usr/lib/modules"
-
-
