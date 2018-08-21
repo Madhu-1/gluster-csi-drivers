@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/gluster/gluster-csi-driver/pkg/glusterfs/utils"
+
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/gluster/glusterd2/pkg/api"
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"

@@ -2,8 +2,8 @@ package glusterfs
 
 import (
 	"github.com/gluster/gluster-csi-driver/pkg/glusterfs/utils"
-	"github.com/gluster/glusterd2/pkg/restclient"
 
+	"github.com/gluster/glusterd2/pkg/restclient"
 	"github.com/golang/glog"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
