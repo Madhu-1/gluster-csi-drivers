@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Madhu-1/gluster-csi-drivers.svg?branch=master)](https://travis-ci.org/Madhu-1/gluster-csi-drivers)
+
 ## steps to setup kubernetes cluster and create pvc using glusterd2 and CSI drivers
 
 ## Installation of kubernets
