@@ -8,3 +8,4 @@ install:
 before_script: cd file
 script:
  - make
+ - make test
